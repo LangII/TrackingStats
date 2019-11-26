@@ -17,15 +17,14 @@ GenerateTrackingFreqDist.py
                                                                                  ###   IMPORTS   ###
                                                                                  ###################
 
-import sys
-sys.path.insert(0, '/tomcat/python')
+# # KEEP FOR EXPORTING
+# import sys
+# sys.path.insert(0, '/tomcat/python')
 
 import pandas
 from collections import OrderedDict, Counter
 from datetime import datetime, timedelta
 from Required import Connections
-
-
 
 ####################################################################################################
                                                                                  ###   GLOBALS   ###
@@ -36,19 +35,17 @@ begin = datetime.now()
 conn = Connections.connect()
 cur = conn.cursor()
 
-
-
 ####################################################################################################
                                                                                ###   CONSTANTS   ###
                                                                                #####################
 
-COMPANY_ID = 735
+COMPANY_ID = 1603
 
 SHIPPED_METHOD  = 'USPS Media Mail'
 # Has to be 'day', 'week', 'month', or 'custom'.
 DATE_RANGE_TYPE = 'week'
-START_DATE      = '2019-11-03'
-END_DATE        = '2019-11-10'
+START_DATE      = '2019-10-27'
+END_DATE        = '2019-11-03'
 
 MAX_FREQ = 14
 
@@ -63,8 +60,6 @@ PREFIX_HEADERS = [
 DAYS_HEADERS      = [ 'Days' + str(i + 1) for i in range(MAX_FREQ - 1) ]
 SUFFIX_HEADERS    = ['DaysMaxFreqPlus']
 DTD_STATS_HEADERS = PREFIX_HEADERS + DAYS_HEADERS + SUFFIX_HEADERS
-
-
 
 ####################################################################################################
                                                                                     ###   MAIN   ###
@@ -97,8 +92,6 @@ def main():
 
     end = datetime.now()
     exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n")
-
-
 
 ####################################################################################################
                                                                                ###   FUNCTIONS   ###

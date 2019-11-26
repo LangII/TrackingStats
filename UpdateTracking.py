@@ -18,7 +18,7 @@ UpdateTracking.py
                                                                                  ###   IMPORTS   ###
                                                                                  ###################
 
-# # FOR EXPORTING
+# # KEEP FOR EXPORTING
 # import sys
 # sys.path.insert(0, '/tomcat/python')
 
@@ -26,8 +26,6 @@ import json
 import Tracking
 from datetime import datetime, timedelta
 from Required import Connections
-
-
 
 ####################################################################################################
                                                                                  ###   GLOBALS   ###
@@ -37,8 +35,6 @@ begin = datetime.now()
 
 conn = Connections.connect()
 cur = conn.cursor()
-
-
 
 ####################################################################################################
                                                                                ###   CONSTANTS   ###
@@ -57,8 +53,6 @@ END_DATE        = '2019-11-01'   # <-- Only used if 'DAYS_AGO = 0'.
 if DAYS_AGO != 0:
     START_DATE = (begin - timedelta(days=DAYS_AGO)).strftime('%Y-%m-%d')
     END_DATE   = begin.strftime('%Y-%m-%d')
-
-
 
 ####################################################################################################
                                                                                     ###   MAIN   ###
@@ -98,8 +92,6 @@ def main():
 
     end = datetime.now()
     exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n\n")
-
-
 
 ####################################################################################################
                                                                                ###   FUNCTIONS   ###
