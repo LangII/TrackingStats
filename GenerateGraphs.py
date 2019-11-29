@@ -6,6 +6,7 @@
 import pandas
 import statistics
 import matplotlib.pyplot as plt
+# import matplotlib.dates as mdates
 from datetime import datetime
 from collections import OrderedDict
 from Required import Connections
@@ -15,7 +16,9 @@ begin = datetime.now()
 conn = Connections.connect()
 cur = conn.cursor()
 
-GROUPS = [
+# SINGLE = [1899, 'UPS MI BPM']
+
+MULTI = [
     [1899, 'UPS MI BPM'],       [507 , 'USPS Media Mail'],
     [1603, 'USPS Media Mail'],  [735 , 'USPS Media Mail']
 ]
@@ -30,7 +33,8 @@ VALUES = {
 }
 
 COLUMNS = ['CompanyID', 'StartDate', 'EndDate', 'TotalShipped', 'DaysMaxFreqPlus']
-COLUMNS = COLUMNS + [ 'Days' + str(i + 1) for i in range(VALUES['max_freq']) ][:-1]
+DAYS_COLS = [ 'Days' + str(i + 1) for i in range(VALUES['max_freq']) ][:-1]
+COLUMNS = COLUMNS + DAYS_COLS
 
 ####################################################################################################
                                                                                     ###   MAIN   ###
@@ -38,15 +42,20 @@ COLUMNS = COLUMNS + [ 'Days' + str(i + 1) for i in range(VALUES['max_freq']) ][:
 
 def main():
 
-    stats = {}
-    for company_id, shipped_method in GROUPS:
-        VALUES['company_id'], VALUES['shipped_method'] = company_id, shipped_method
-        group_stats = getStatsByGroup(VALUES)
-        stats[company_id] = convertStatsToDf(group_stats)
-
+    # stats = {}
+    # for company_id, shipped_method in GROUPS:
+    #     VALUES['company_id'], VALUES['shipped_method'] = company_id, shipped_method
+    #     group_stats = getStatsByGroup(VALUES)
+    #     stats[company_id] = convertStatsToDf(group_stats)
     # for group in stats:  print(stats[group])
+    # df = updateDfWithMeanAndStDev(stats[1899])
 
-    df = updateDfWithMeanAndStDev(stats[1899])
+    stats = getStats(VALUES)
+    df = convertStatsToDf(stats)
+    df = updateDfWithMeanAndStDev(df)
+    print(df)
+
+    generatePlot(df)
 
     end = datetime.now()
     exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n")
@@ -55,7 +64,7 @@ def main():
                                                                                ###   FUNCTIONS   ###
                                                                                #####################
 
-def getStatsByGroup(_values):
+def getStats(_values):
 
     query = """
         SELECT {} FROM tblDaysToDeliverStats
@@ -96,7 +105,7 @@ def updateDfWithMeanAndStDev(_df):
 
     # The "lazy" method if iterating through a dataframe is used because two different column
     # updates are done using similar calculations.  This way 'one_dim_array' does not need to be
-    # generated twice per dataframe row.
+    # generated twice per dataframe row when using dataframe.apply.
 
     new_columns = _df.columns.tolist() + ['Mean', 'StDev']
     df_ = pandas.DataFrame(columns=new_columns)
@@ -116,6 +125,74 @@ def updateDfWithMeanAndStDev(_df):
     return df_
 
 
+
+def generatePlot(_df):
+
+    # print(_df)
+    # exit()
+
+    df_range = range(len(_df.index))
+    x = [ i + 1 for i in df_range ]
+    mean, stdev = _df['Mean'].tolist(), _df['StDev'].tolist()
+
+    start_dates = [ i.strftime('%m-%d') for i in _df['StartDate'].tolist() ]
+    end_dates = [ i.strftime('%m-%d') for i in _df['EndDate'].tolist() ]
+    x_dates = [ start_dates[i] + ' -> ' + end_dates[i] for i in df_range ]
+
+    lower_dev = [ mean[i] - stdev[i] for i in df_range ]
+    upper_dev = [ mean[i] + stdev[i] for i in df_range ]
+
+    fig, (dtd, totals) = plt.subplots(nrows=2, ncols=1, sharex=True)
+
+    # 'Days1' through 'Days13'
+    # print(DAYS_COLS)
+    # y_dtd = []
+
+    dtd_x, dtd_y, dtd_s = [], [], []
+    dtd_p_x, dtd_p_y = [], []
+    totals_x, totals_y = [], []
+
+    for _, row in _df.iterrows():
+        row = dict(row.items())
+        start_date, end_date = [ i.strftime('%m-%d') for i in [row['StartDate'], row['EndDate']] ]
+        # x_date = [start_date + ' -> ' + end_date] * (VALUES['max_freq'] - 1)
+        x_date = start_date + ' to ' + end_date
+
+        for day in range(len(DAYS_COLS)):
+            dtd_x.append(x_date)
+            dtd_y.append(day + 1)
+            dtd_s.append(row[DAYS_COLS[day]])
+
+        dtd_p_x.append(x_date)
+        dtd_p_y.append(row['Mean'])
+
+        totals_x.append(x_date)
+        totals_y.append(row['TotalShipped'] - row['DaysMaxFreqPlus'])
+
+    # print(x_dates)
+    # print(y_dtds)
+    # print(z_dtd_values)
+
+        # exit()
+
+    dtd.scatter(dtd_x, dtd_y, s=dtd_s)
+    dtd.plot(dtd_p_x, dtd_p_y, c='lightblue')
+    totals.plot(totals_x, totals_y)
+
+    # exit()
+
+
+    # ax.scatter(x_date, y)
+    # ax.plot(dates, lower_dev)
+    # ax.plot(dates, upper_dev)
+
+
+
+    plt.xticks(rotation=30, ha='right')
+    dtd.set_ylabel('days to deliver')
+    totals.set_ylabel('total shipped packages')
+    fig.tight_layout()
+    plt.show()
 
 
 
