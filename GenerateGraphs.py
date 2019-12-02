@@ -24,12 +24,12 @@ MULTI = [
 ]
 
 VALUES = {
-    'company_id': 1899,
-    'shipped_method': 'UPS MI BPM',
+    'company_id': 507,
+    'shipped_method': 'USPS Media Mail',
     'max_freq': 14,
     'date_range_type': 'week',
     'greater_date': '2019-10-06',
-    'less_date': '2019-10-27'
+    'less_date': '2019-11-10'
 }
 
 COLUMNS = ['CompanyID', 'StartDate', 'EndDate', 'TotalShipped', 'DaysMaxFreqPlus']
@@ -128,9 +128,6 @@ def updateDfWithMeanAndStDev(_df):
 
 def generatePlot(_df):
 
-    # print(_df)
-    # exit()
-
     df_range = range(len(_df.index))
     x = [ i + 1 for i in df_range ]
     mean, stdev = _df['Mean'].tolist(), _df['StDev'].tolist()
@@ -144,10 +141,6 @@ def generatePlot(_df):
 
     fig, (dtd, totals) = plt.subplots(nrows=2, ncols=1, sharex=True)
 
-    # 'Days1' through 'Days13'
-    # print(DAYS_COLS)
-    # y_dtd = []
-
     dtd_x, dtd_y, dtd_s = [], [], []
     dtd_p_x, dtd_p_y = [], []
     totals_x, totals_y = [], []
@@ -155,7 +148,6 @@ def generatePlot(_df):
     for _, row in _df.iterrows():
         row = dict(row.items())
         start_date, end_date = [ i.strftime('%m-%d') for i in [row['StartDate'], row['EndDate']] ]
-        # x_date = [start_date + ' -> ' + end_date] * (VALUES['max_freq'] - 1)
         x_date = start_date + ' to ' + end_date
 
         for day in range(len(DAYS_COLS)):
@@ -169,28 +161,22 @@ def generatePlot(_df):
         totals_x.append(x_date)
         totals_y.append(row['TotalShipped'] - row['DaysMaxFreqPlus'])
 
-    # print(x_dates)
-    # print(y_dtds)
-    # print(z_dtd_values)
-
-        # exit()
-
     dtd.scatter(dtd_x, dtd_y, s=dtd_s)
     dtd.plot(dtd_p_x, dtd_p_y, c='lightblue')
-    totals.plot(totals_x, totals_y)
+    totals.plot(totals_x, totals_y, 'o-')
 
-    # exit()
+    for i in range(len(totals_x)):
+        totals.annotate(
+            totals_y[i], (totals_x[i], totals_y[i] + 3), textcoords='offset pixels', xytext=(0, 12),
+            ha='center', bbox={'boxstyle': 'square', 'fc': 'white'}
+        )
 
-
-    # ax.scatter(x_date, y)
-    # ax.plot(dates, lower_dev)
-    # ax.plot(dates, upper_dev)
-
-
+    _, y_top = totals.set_ylim()
+    totals.set_ylim(0, y_top * 1.25)
 
     plt.xticks(rotation=30, ha='right')
     dtd.set_ylabel('days to deliver')
-    totals.set_ylabel('total shipped packages')
+    totals.set_ylabel('total packages shipped')
     fig.tight_layout()
     plt.show()
 
