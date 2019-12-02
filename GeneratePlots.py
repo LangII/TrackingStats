@@ -55,7 +55,7 @@ def main():
     df = updateDfWithMeanAndStDev(df)
     print(df)
 
-    generatePlot(df)
+    generatePlots(df)
 
     end = datetime.now()
     exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n")
@@ -126,54 +126,58 @@ def updateDfWithMeanAndStDev(_df):
 
 
 
-def generatePlot(_df):
+def generatePlots(_df):
 
-    df_range = range(len(_df.index))
-    x = [ i + 1 for i in df_range ]
-    mean, stdev = _df['Mean'].tolist(), _df['StDev'].tolist()
-
-    start_dates = [ i.strftime('%m-%d') for i in _df['StartDate'].tolist() ]
-    end_dates = [ i.strftime('%m-%d') for i in _df['EndDate'].tolist() ]
-    x_dates = [ start_dates[i] + ' -> ' + end_dates[i] for i in df_range ]
-
-    lower_dev = [ mean[i] - stdev[i] for i in df_range ]
-    upper_dev = [ mean[i] + stdev[i] for i in df_range ]
+    # LOCAL VARIABLES...
+    # df_range = range(len(_df.index))
+    # mean, stdev = _df['Mean'].tolist(), _df['StDev'].tolist()
+    # start_dates = [ i.strftime('%m-%d') for i in _df['StartDate'].tolist() ]
+    # end_dates = [ i.strftime('%m-%d') for i in _df['EndDate'].tolist() ]
+    # x_dates = [ start_dates[i] + ' -> ' + end_dates[i] for i in df_range ]
+    # lower_stdev = [ mean[i] - stdev[i] for i in df_range ]
+    # upper_stdev = [ mean[i] + stdev[i] for i in df_range ]
 
     fig, (dtd, totals) = plt.subplots(nrows=2, ncols=1, sharex=True)
 
-    dtd_x, dtd_y, dtd_s = [], [], []
-    dtd_p_x, dtd_p_y = [], []
+    dtd_scatter_x, dtd_scatter_y, dtd_scatter_size = [], [], []
+    dtd_plot_x, dtd_plot_y = [], []
     totals_x, totals_y = [], []
 
     for _, row in _df.iterrows():
         row = dict(row.items())
+
+        # Generate fig 'xtick_date'.
         start_date, end_date = [ i.strftime('%m-%d') for i in [row['StartDate'], row['EndDate']] ]
-        x_date = start_date + ' to ' + end_date
+        xtick_date = start_date + ' to ' + end_date
 
+        # Loop through 'DAYS_COLS' to collect values for days-to-deliver scatter plot.
         for day in range(len(DAYS_COLS)):
-            dtd_x.append(x_date)
-            dtd_y.append(day + 1)
-            dtd_s.append(row[DAYS_COLS[day]])
+            dtd_scatter_x.append(xtick_date)
+            dtd_scatter_y.append(day + 1)
+            dtd_scatter_size.append(row[DAYS_COLS[day]])
 
-        dtd_p_x.append(x_date)
-        dtd_p_y.append(row['Mean'])
+        # Collect values for days-to-deliver plot.
+        dtd_plot_x.append(xtick_date)
+        dtd_plot_y.append(row['Mean'])
 
-        totals_x.append(x_date)
+        # Collect values for totals plot.
+        totals_x.append(xtick_date)
         totals_y.append(row['TotalShipped'] - row['DaysMaxFreqPlus'])
 
-    dtd.scatter(dtd_x, dtd_y, s=dtd_s)
-    dtd.plot(dtd_p_x, dtd_p_y, c='lightblue')
+    # Generate graphs with collected values.
+    dtd.scatter(dtd_scatter_x, dtd_scatter_y, s=dtd_scatter_size)
+    dtd.plot(dtd_plot_x, dtd_plot_y, c='lightblue')
     totals.plot(totals_x, totals_y, 'o-')
 
+    # Update totals graph with annotations.
     for i in range(len(totals_x)):
         totals.annotate(
             totals_y[i], (totals_x[i], totals_y[i] + 3), textcoords='offset pixels', xytext=(0, 12),
             ha='center', bbox={'boxstyle': 'square', 'fc': 'white'}
         )
+    totals.set_ylim(0, totals.set_ylim()[1] * 1.25)
 
-    _, y_top = totals.set_ylim()
-    totals.set_ylim(0, y_top * 1.25)
-
+    # Final fig touch ups then render graphs.
     plt.xticks(rotation=30, ha='right')
     dtd.set_ylabel('days to deliver')
     totals.set_ylabel('total packages shipped')
