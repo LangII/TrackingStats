@@ -3,6 +3,12 @@
 
 UpdateTracking.py
 
+- 2019-12-02 by David Lang
+    - Added constant RECHECKING_TODAY and conditionals to query of getPackages().  Conditionals are
+    to check if package data was already pulled that day.  This is so data is not repeatedly
+    retrieved unnecessarily if script is repeatedly run due to time outs or errors.  Then
+    RECHECKING_TODAY makes this functionality toggleable for debugging.
+
 - 2019-11-20 by David Lang
     - Update database with tracking event Message, event MessageTimestamp, and event boolean
     Delivered, from designated conditions of CompanyID, ShippedMethod, and (DaysAgo or (StartDate
@@ -41,18 +47,23 @@ cur = conn.cursor()
                                                                                #####################
 
 # 'getPackages()', 'updateTableArrival()'
-COMPANY_ID = 735
+COMPANY_ID = 1900
 
 # 'getPackages()'
 SHIPPED_SERVICE = 'USPS'
 SHIPPED_METHOD  = 'USPS Media Mail'
 DAYS_AGO        = 30
-START_DATE      = '2019-10-01'   # <-- Only used if 'DAYS_AGO = 0'.
-END_DATE        = '2019-11-01'   # <-- Only used if 'DAYS_AGO = 0'.
+# START_DATE      = '2019-10-01'   # <-- Only used if 'DAYS_AGO = 0'.
+# END_DATE        = '2019-11-01'   # <-- Only used if 'DAYS_AGO = 0'.
+
+# Toggle 'LastChecked < TODAY' conditional from 'getPackages() query'.
+RECHECKING_TODAY = False
+
+TODAY = begin.strftime('%Y-%m-%d')
 
 if DAYS_AGO != 0:
     START_DATE = (begin - timedelta(days=DAYS_AGO)).strftime('%Y-%m-%d')
-    END_DATE   = begin.strftime('%Y-%m-%d')
+    END_DATE   = TODAY
 
 ####################################################################################################
                                                                                     ###   MAIN   ###
@@ -131,8 +142,14 @@ def getPackages():
                 AND ps.CompletionDate > %s
                 AND ps.CompletionDate < %s
                 AND (a.Delivered != 'Y' OR a.Delivered IS NULL)
+                {}
     """
-    insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE]
+    if not RECHECKING_TODAY:
+        query = query.format('AND a.LastChecked < %s')
+        insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE, TODAY]
+    else:
+        query = query.format('')
+        insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE]
     cur.execute(query, insert)
     select_ = [ [str(x), y] for x, y in cur.fetchall() ]
 
