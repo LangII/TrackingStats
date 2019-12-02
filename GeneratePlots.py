@@ -3,6 +3,17 @@
 """   <><><>   UNDER CONSTRUCTION   <><><>   """
 ################################################
 
+"""
+
+- turnover notes ...
+    - update scatter plot legend labelspacing to be scalable / softcoded
+
+"""
+
+####################################################################################################
+                                                                                 ###   IMPORTS   ###
+                                                                                 ###################
+
 import pandas
 import statistics
 import matplotlib.pyplot as plt
@@ -11,10 +22,17 @@ from datetime import datetime
 from collections import OrderedDict
 from Required import Connections
 
+####################################################################################################
+                                                                                 ###   GLOBALS   ###
+                                                                                 ###################
 begin = datetime.now()
 
 conn = Connections.connect()
 cur = conn.cursor()
+
+####################################################################################################
+                                                                               ###   CONSTANTS   ###
+                                                                               #####################
 
 # SINGLE = [1899, 'UPS MI BPM']
 
@@ -24,7 +42,7 @@ MULTI = [
 ]
 
 VALUES = {
-    'company_id': 507,
+    'company_id': 1603,
     'shipped_method': 'USPS Media Mail',
     'max_freq': 14,
     'date_range_type': 'week',
@@ -128,46 +146,43 @@ def updateDfWithMeanAndStDev(_df):
 
 def generatePlots(_df):
 
-    # LOCAL VARIABLES...
-    # df_range = range(len(_df.index))
-    # mean, stdev = _df['Mean'].tolist(), _df['StDev'].tolist()
-    # start_dates = [ i.strftime('%m-%d') for i in _df['StartDate'].tolist() ]
-    # end_dates = [ i.strftime('%m-%d') for i in _df['EndDate'].tolist() ]
-    # x_dates = [ start_dates[i] + ' -> ' + end_dates[i] for i in df_range ]
-    # lower_stdev = [ mean[i] - stdev[i] for i in df_range ]
-    # upper_stdev = [ mean[i] + stdev[i] for i in df_range ]
-
+    # Initiate local variables.
     fig, (dtd, totals) = plt.subplots(nrows=2, ncols=1, sharex=True)
-
     dtd_scatter_x, dtd_scatter_y, dtd_scatter_size = [], [], []
-    dtd_plot_x, dtd_plot_y = [], []
+    dtd_plot_x, dtd_plot_m_y, dtd_plot_sdmax_y, dtd_plot_sdmin_y = [], [], [], []
     totals_x, totals_y = [], []
 
     for _, row in _df.iterrows():
         row = dict(row.items())
 
-        # Generate fig 'xtick_date'.
+        # Generate 'fig x_date'.
         start_date, end_date = [ i.strftime('%m-%d') for i in [row['StartDate'], row['EndDate']] ]
-        xtick_date = start_date + ' to ' + end_date
+        x_date = start_date + ' to ' + end_date
 
         # Loop through 'DAYS_COLS' to collect values for days-to-deliver scatter plot.
         for day in range(len(DAYS_COLS)):
-            dtd_scatter_x.append(xtick_date)
+            dtd_scatter_x.append(x_date)
             dtd_scatter_y.append(day + 1)
             dtd_scatter_size.append(row[DAYS_COLS[day]])
 
         # Collect values for days-to-deliver plot.
-        dtd_plot_x.append(xtick_date)
-        dtd_plot_y.append(row['Mean'])
+        dtd_plot_x.append(x_date)
+        dtd_plot_m_y.append(row['Mean'])
+        dtd_plot_sdmax_y.append(row['Mean'] + row['StDev'])
+        dtd_plot_sdmin_y.append(row['Mean'] - row['StDev'])
 
-        # Collect values for totals plot.
-        totals_x.append(xtick_date)
+        # Collect values for 'totals' plot.
+        totals_x.append(x_date)
         totals_y.append(row['TotalShipped'] - row['DaysMaxFreqPlus'])
 
     # Generate graphs with collected values.
-    dtd.scatter(dtd_scatter_x, dtd_scatter_y, s=dtd_scatter_size)
-    dtd.plot(dtd_plot_x, dtd_plot_y, c='lightblue')
+    dtd_scatter = dtd.scatter(dtd_scatter_x, dtd_scatter_y, s=dtd_scatter_size)
+    dtd.plot(dtd_plot_x, dtd_plot_sdmax_y, c='lightblue', label='stdev max')
+    dtd.plot(dtd_plot_x, dtd_plot_m_y, c='orange', label='average')
+    dtd.plot(dtd_plot_x, dtd_plot_sdmin_y, c='lightblue', label='stdev min')
+    dtd.fill_between(dtd_plot_x, dtd_plot_sdmax_y, dtd_plot_sdmin_y, color='lightblue', alpha=0.2)
     totals.plot(totals_x, totals_y, 'o-')
+    totals.fill_between(totals_x, totals_y, alpha=0.5)
 
     # Update totals graph with annotations.
     for i in range(len(totals_x)):
@@ -175,7 +190,18 @@ def generatePlots(_df):
             totals_y[i], (totals_x[i], totals_y[i] + 3), textcoords='offset pixels', xytext=(0, 12),
             ha='center', bbox={'boxstyle': 'square', 'fc': 'white'}
         )
-    totals.set_ylim(0, totals.set_ylim()[1] * 1.25)
+    totals.set_ylim(0, totals.set_ylim()[1] * 1.2)
+
+    # Generate scatter plot size legend.
+    handles, labels = dtd_scatter.legend_elements(
+        prop='sizes', alpha=1, color=dtd_scatter.cmap(0.35)
+    )
+    dtd.legend(
+        handles,                    labels,
+        loc='center left',          title="# of packages delivered\nin 'x' # of days",
+        bbox_to_anchor=(1, 0.5),    ncol=2,
+        labelspacing=1.8
+    )
 
     # Final fig touch ups then render graphs.
     plt.xticks(rotation=30, ha='right')
