@@ -1,9 +1,11 @@
 
-################################################
-"""   <><><>   UNDER CONSTRUCTION   <><><>   """
-################################################
-
 """
+
+GeneratePlots.py
+
+- 2019-12-03 by David Lang
+    - With entries from tblDaysToDeliverStats generate and display data plots for observing trends
+    in days-to-deliver averages.
 
 - turnover notes ...
     - update scatter plot legend labelspacing to be scalable / softcoded
@@ -17,7 +19,6 @@
 import pandas
 import statistics
 import matplotlib.pyplot as plt
-# import matplotlib.dates as mdates
 from datetime import datetime
 from collections import OrderedDict
 from Required import Connections
@@ -34,24 +35,15 @@ cur = conn.cursor()
                                                                                ###   CONSTANTS   ###
                                                                                #####################
 
-# SINGLE = [1899, 'UPS MI BPM']
-
-MULTI = [
-    [1899, 'UPS MI BPM'],       [507 , 'USPS Media Mail'],
-    [1603, 'USPS Media Mail'],  [735 , 'USPS Media Mail']
-]
-
-VALUES = {
-    'company_id': 1603,
-    'shipped_method': 'USPS Media Mail',
-    'max_freq': 14,
-    'date_range_type': 'week',
-    'greater_date': '2019-10-06',
-    'less_date': '2019-11-10'
-}
+COMPANY_ID      = 507
+SHIPPED_METHOD  = 'USPS Media Mail'
+DATE_RANGE_TYPE = 'week'
+GT_ET_DATE      = '2019-10-06'
+LT_ET_DATE      = '2019-11-10'
+MAX_FREQ        = 14
 
 COLUMNS = ['CompanyID', 'StartDate', 'EndDate', 'TotalShipped', 'DaysMaxFreqPlus']
-DAYS_COLS = [ 'Days' + str(i + 1) for i in range(VALUES['max_freq']) ][:-1]
+DAYS_COLS = [ 'Days' + str(i + 1) for i in range(MAX_FREQ) ][:-1]
 COLUMNS = COLUMNS + DAYS_COLS
 
 ####################################################################################################
@@ -60,15 +52,7 @@ COLUMNS = COLUMNS + DAYS_COLS
 
 def main():
 
-    # stats = {}
-    # for company_id, shipped_method in GROUPS:
-    #     VALUES['company_id'], VALUES['shipped_method'] = company_id, shipped_method
-    #     group_stats = getStatsByGroup(VALUES)
-    #     stats[company_id] = convertStatsToDf(group_stats)
-    # for group in stats:  print(stats[group])
-    # df = updateDfWithMeanAndStDev(stats[1899])
-
-    stats = getStats(VALUES)
+    stats = getStats()
     df = convertStatsToDf(stats)
     df = updateDfWithMeanAndStDev(df)
     print(df)
@@ -82,7 +66,13 @@ def main():
                                                                                ###   FUNCTIONS   ###
                                                                                #####################
 
-def getStats(_values):
+def getStats():
+    """
+    input:  constants = COLUMNS, COMPANY_ID, SHIPPED_METHOD, MAX_FREQ, DATE_RANGE_TYPE, GT_ET_DATE,
+                        LT_ET_DATE
+    output: Return list-of-tuples of entries from 'tblDaysToDeliverStats' with inserted values from
+            constants.
+    """
 
     query = """
         SELECT {} FROM tblDaysToDeliverStats
@@ -94,10 +84,7 @@ def getStats(_values):
                 AND StartDate <= %s
     """
     query = query.format(', '.join(COLUMNS))
-    values = [
-        _values['company_id'], _values['shipped_method'], _values['max_freq'],
-        _values['date_range_type'], _values['greater_date'], _values['less_date']
-    ]
+    values = [COMPANY_ID, SHIPPED_METHOD, MAX_FREQ, DATE_RANGE_TYPE, GT_ET_DATE, LT_ET_DATE]
 
     cur.execute(query, values)
     select_ = cur.fetchall()
@@ -120,6 +107,10 @@ def convertStatsToDf(_stats):
 
 
 def updateDfWithMeanAndStDev(_df):
+    """
+    input:  _df = Dataframe from 'convertStatsToDf()'.
+    output: Return dataframe with additional calculated rows of 'Mean' and 'StDev'.
+    """
 
     # The "lazy" method if iterating through a dataframe is used because two different column
     # updates are done using similar calculations.  This way 'one_dim_array' does not need to be
@@ -132,7 +123,7 @@ def updateDfWithMeanAndStDev(_df):
         row = dict(row.items())
 
         one_dim_array = []
-        for i in range(VALUES['max_freq'] - 1):
+        for i in range(MAX_FREQ - 1):
             one_dim_array.append(row['Days' + str(i + 1)] * [i + 1])
         one_dim_array = sum(one_dim_array, [])
 
@@ -145,19 +136,23 @@ def updateDfWithMeanAndStDev(_df):
 
 
 def generatePlots(_df):
+    """
+    input:  constants = DAYS_COLS, COMPANY_ID, SHIPPED_METHOD
+            _df = Dataframe from 'updateDfWithMeandAndStDev()'.
+    output: Display plots generated with matplotlib.
+    """
 
     # Initiate local variables.
-    fig, (dtd, totals) = plt.subplots(nrows=2, ncols=1, sharex=True)
+    fig, (dtd, packages) = plt.subplots(nrows=2, ncols=1, figsize=(10, 8), sharex=True)
     dtd_scatter_x, dtd_scatter_y, dtd_scatter_size = [], [], []
     dtd_plot_x, dtd_plot_m_y, dtd_plot_sdmax_y, dtd_plot_sdmin_y = [], [], [], []
-    totals_x, totals_y = [], []
+    packages_x, packages_totals_y, packages_nd_y = [], [], []
 
     for _, row in _df.iterrows():
         row = dict(row.items())
 
-        # Generate 'fig x_date'.
-        start_date, end_date = [ i.strftime('%m-%d') for i in [row['StartDate'], row['EndDate']] ]
-        x_date = start_date + ' to ' + end_date
+        # Generate 'x_date' for all plots.
+        x_date = row['StartDate'].strftime('%m-%d') + ' to ' + row['EndDate'].strftime('%m-%d')
 
         # Loop through 'DAYS_COLS' to collect values for days-to-deliver scatter plot.
         for day in range(len(DAYS_COLS)):
@@ -171,43 +166,61 @@ def generatePlots(_df):
         dtd_plot_sdmax_y.append(row['Mean'] + row['StDev'])
         dtd_plot_sdmin_y.append(row['Mean'] - row['StDev'])
 
-        # Collect values for 'totals' plot.
-        totals_x.append(x_date)
-        totals_y.append(row['TotalShipped'] - row['DaysMaxFreqPlus'])
+        # Collect values for packages plot.
+        packages_x.append(x_date)
+        packages_totals_y.append(row['TotalShipped'] - row['DaysMaxFreqPlus'])
+        packages_nd_y.append(row['DaysMaxFreqPlus'])
 
-    # Generate graphs with collected values.
-    dtd_scatter = dtd.scatter(dtd_scatter_x, dtd_scatter_y, s=dtd_scatter_size)
-    dtd.plot(dtd_plot_x, dtd_plot_sdmax_y, c='lightblue', label='stdev max')
+    # Generate dtd plot with collected values.
+    dtd_scatter = dtd.scatter(dtd_scatter_x, dtd_scatter_y, s=dtd_scatter_size, c='teal')
+    dtd.plot(dtd_plot_x, dtd_plot_sdmax_y, c='lightblue')
     dtd.plot(dtd_plot_x, dtd_plot_m_y, c='orange', label='average')
-    dtd.plot(dtd_plot_x, dtd_plot_sdmin_y, c='lightblue', label='stdev min')
+    dtd.plot(dtd_plot_x, dtd_plot_sdmin_y, c='lightblue', label='deviation')
     dtd.fill_between(dtd_plot_x, dtd_plot_sdmax_y, dtd_plot_sdmin_y, color='lightblue', alpha=0.2)
-    totals.plot(totals_x, totals_y, 'o-')
-    totals.fill_between(totals_x, totals_y, alpha=0.5)
 
-    # Update totals graph with annotations.
-    for i in range(len(totals_x)):
-        totals.annotate(
-            totals_y[i], (totals_x[i], totals_y[i] + 3), textcoords='offset pixels', xytext=(0, 12),
-            ha='center', bbox={'boxstyle': 'square', 'fc': 'white'}
+    # Generate packages plot with collected values.
+    packages.plot(packages_x, packages_totals_y, 'o-', c='teal', label='total delivered')
+    packages.fill_between(packages_x, packages_totals_y, color='teal', alpha=0.5)
+    packages.plot(packages_x, packages_nd_y, 'o-', c='tomato', label='not delivered')
+
+    # Update packages plot with annotations.
+    for i in range(len(packages_x)):
+        packages.annotate(
+            packages_totals_y[i], (packages_x[i], packages_totals_y[i] + 3),
+            textcoords='offset pixels', xytext=(6, 12), ha='left',
+            bbox={'boxstyle': 'square', 'fc': 'white', 'ec': 'teal'}
         )
-    totals.set_ylim(0, totals.set_ylim()[1] * 1.2)
+        packages.annotate(
+            packages_nd_y[i], (packages_x[i], packages_nd_y[i] + 3),
+            textcoords='offset pixels', xytext=(-6, 12), ha='right',
+            bbox={'boxstyle': 'square', 'fc': 'white', 'ec': 'tomato'}
+        )
+    packages.set_ylim(0, packages.set_ylim()[1] * 1.2)
 
     # Generate scatter plot size legend.
-    handles, labels = dtd_scatter.legend_elements(
-        prop='sizes', alpha=1, color=dtd_scatter.cmap(0.35)
-    )
-    dtd.legend(
+    handles, labels = dtd_scatter.legend_elements(prop='sizes', alpha=1, color='teal')
+    size_legend = dtd.legend(
         handles,                    labels,
-        loc='center left',          title="# of packages delivered\nin 'x' # of days",
-        bbox_to_anchor=(1, 0.5),    ncol=2,
+        loc='upper left',           title="# of packages",
+        bbox_to_anchor=(1, 0.8),    ncol=2,
         labelspacing=1.8
     )
 
-    # Final fig touch ups then render graphs.
+    # Final adjustments to 'dtd' plot.
+    dtd.set_ylabel('# of days to deliver')
+    dtd.legend(loc='lower left', bbox_to_anchor=(1, 0.8)), dtd.add_artist(size_legend)
+
+    # Final adjustments to 'packages' plot.
+    packages.set_ylabel('# of packages')
+    packages.set_xlabel('date range (by week)')
+    packages.legend(loc='lower left', bbox_to_anchor=(1, 0.8))
+
+    # Final adjustments to 'fig' and 'plt'.
     plt.xticks(rotation=30, ha='right')
-    dtd.set_ylabel('days to deliver')
-    totals.set_ylabel('total packages shipped')
+    title = 'Days to Deliver Details\n{} / {}'.format(COMPANY_ID, SHIPPED_METHOD)
+    fig.suptitle(title, size=16)
     fig.tight_layout()
+    fig.subplots_adjust(top=0.9)
     plt.show()
 
 
