@@ -1,7 +1,7 @@
 
 """
 
-GeneratePlots.py
+SingleDtdWeeklyPlot.py
 
 - 2019-12-03 by David Lang
     - With entries from tblDaysToDeliverStats generate and display data plots for observing trends
@@ -9,6 +9,8 @@ GeneratePlots.py
 
 - turnover notes ...
     - update scatter plot legend labelspacing to be scalable / softcoded
+    - After further project development (to ensure accuracy) update constants' values to be assigned
+    by 'sys.argv'.  For cron automation.
 
 """
 
@@ -16,12 +18,12 @@ GeneratePlots.py
                                                                                  ###   IMPORTS   ###
                                                                                  ###################
 
+from datetime import datetime
+from Required import Connections
+from collections import OrderedDict
 import pandas
 import statistics
 import matplotlib.pyplot as plt
-from datetime import datetime
-from collections import OrderedDict
-from Required import Connections
 
 ####################################################################################################
                                                                                  ###   GLOBALS   ###
