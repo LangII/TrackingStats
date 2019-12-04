@@ -1,7 +1,7 @@
 
 """
 
-SingleDtdWeeklyPlot.py
+DtdWeeklyPlotSingle.py
 
 - 2019-12-03 by David Lang
     - With entries from tblDaysToDeliverStats generate and display data plots for observing trends
@@ -37,7 +37,7 @@ cur = conn.cursor()
                                                                                ###   CONSTANTS   ###
                                                                                #####################
 
-COMPANY_ID      = 507
+COMPANY_ID      = 1900
 SHIPPED_METHOD  = 'USPS Media Mail'
 DATE_RANGE_TYPE = 'week'
 GT_ET_DATE      = '2019-10-06'
@@ -97,7 +97,8 @@ def getStats():
 
 def convertStatsToDf(_stats):
     """
-    input:  _stats = List-of-tuples from 'getStatsByGroup()'.
+    input:  constants = COLUMNS
+            _stats = List-of-tuples from 'getStats()'.
     output: Return dataframe object, of data from '_stats'.
     """
 
@@ -183,7 +184,7 @@ def generatePlots(_df):
     # Generate packages plot with collected values.
     packages.plot(packages_x, packages_totals_y, 'o-', c='teal', label='total delivered')
     packages.fill_between(packages_x, packages_totals_y, color='teal', alpha=0.5)
-    packages.plot(packages_x, packages_nd_y, 'o-', c='tomato', label='not delivered')
+    packages.plot(packages_x, packages_nd_y, 'o-', c='brown', label='not delivered')
 
     # Update packages plot with annotations.
     for i in range(len(packages_x)):
@@ -195,9 +196,10 @@ def generatePlots(_df):
         packages.annotate(
             packages_nd_y[i], (packages_x[i], packages_nd_y[i] + 3),
             textcoords='offset pixels', xytext=(-6, 12), ha='right',
-            bbox={'boxstyle': 'square', 'fc': 'white', 'ec': 'tomato'}
+            bbox={'boxstyle': 'square', 'fc': 'white', 'ec': 'brown'}
         )
     packages.set_ylim(0, packages.set_ylim()[1] * 1.2)
+
 
     # Generate scatter plot size legend.
     handles, labels = dtd_scatter.legend_elements(prop='sizes', alpha=1, color='teal')

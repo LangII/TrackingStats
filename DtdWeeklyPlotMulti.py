@@ -5,7 +5,7 @@
 
 """
 
-MultiDtdWeeklyPlot.py
+DtdWeeklyPlotMulti.py
 
 - turnover notes ...
     - After further project development (to ensure accuracy) update constants' values to be assigned
