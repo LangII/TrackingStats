@@ -191,6 +191,32 @@ def getSingleUpsVitals(_tracking_number):
 
 
 
+def getSingleUpsHistory(_tracking_number):
+    """
+    input:  _tracking_number = UPS tracking number to be sent to UPS API to recover tracking data.
+    output: Return list-of-dicts 'history_'.  Each entity of list is a tracking event in the
+            packages history.  Each entity's dictionary is comprised of:
+                history_['message'] =       String of description of event.
+                history_['time_stamp'] =    Datetime object, of time stamp when
+                                            'history_['message']' was created.
+    """
+
+    # Get the json pack from UPS API and start parsing.
+    ups_data = getSingleUpsJson(_tracking_number, 'all')
+    ups_data = ups_data['TrackResponse']['Shipment']['Package']['Activity']
+
+    # Populate return object 'history_' with data from iterations of 'ups_data'.
+    history_ = []
+    for activity in ups_data:
+        history_ += [{
+            'message': activity['Status']['StatusType']['Description'],
+            'time_stamp': datetime.strptime(activity['Date'] + activity['Time'], '%Y%m%d%H%M')
+        }]
+
+    return history_
+
+
+
 def getSingleUspsJson(_tracking_number):
     """
     input:  constants = USPS_USER_ID, USPS_REQUEST_DELAY
