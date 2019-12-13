@@ -91,13 +91,27 @@ def removeNonAscii(string, replace=''):
 
 
 
-def getSingleUpsJson(_tracking_number):
+def getSingleUpsJson(_tracking_number, activity_type='last'):
     """
     input:  constants =         UPS_ACCESS_LICENSE_NUMBER, UPS_USER_ID, UPS_PASSWORD,
                                 UPS_ONLINETOOLS_URL, UPS_REQUEST_HEADERS, UPS_MAIL_INNOVATION_TAG
             _tracking_number =  UPS tracking number to be sent to UPS API to recover tracking data.
-    output: Return json 'ups_data_', of response from UPS API for input '_tracking_number'.
+            activity_type =     Currently accepts 'last' or 'all'.  'last' returns json of most
+                                recent tracking activity.  'all' returns json of all tracking
+                                activity.
+    output: Return json 'ups_data_', of response from UPS API for input '_tracking_number' and
+            'activity_type'.
     """
+
+    # String argument handling.
+    if activity_type == 'last':
+        customer_context, request_option = 'get tracking last activity', '0'
+    elif activity_type == 'all':
+        customer_context, request_option = 'get tracking all activity', '1'
+    else:
+        err_msg =  "ERROR:  Acceptable values for argument 'activity_type' are 'last' (default) or"
+        err_msg += " 'all', not '{}'.".format(activity_type)
+        return err_msg
 
     xml = """
         <AccessRequest xml:lang="en-US">
@@ -109,11 +123,11 @@ def getSingleUpsJson(_tracking_number):
         <TrackRequest xml:lang="en-US">
             <Request>
                 <TransactionReference>
-                    <CustomerContext>Get tracking status</CustomerContext>
+                    <CustomerContext>{}</CustomerContext>
                 </TransactionReference>
                 <XpciVersion>1.0</XpciVersion>
                 <RequestAction>Track</RequestAction>
-                <RequestOption>activity</RequestOption>
+                <RequestOption>{}</RequestOption>
             </Request>
             {}
             <TrackingNumber>{}</TrackingNumber>
@@ -122,8 +136,8 @@ def getSingleUpsJson(_tracking_number):
     # 'MAIL_INNOVATION_TAG' is an xml tag needed to designate that 'TrackingNumber' is for an
     # envelope package type.
     xml = xml.format(
-        UPS_ACCESS_LICENSE_NUMBER, UPS_USER_ID, UPS_PASSWORD, UPS_MAIL_INNOVATION_TAG,
-        _tracking_number
+        UPS_ACCESS_LICENSE_NUMBER, UPS_USER_ID, UPS_PASSWORD, customer_context, request_option,
+        UPS_MAIL_INNOVATION_TAG, _tracking_number
     ).encode('utf-8')
 
     ups_data_ = Request(url=UPS_ONLINETOOLS_URL, data=xml, headers=UPS_REQUEST_HEADERS)
