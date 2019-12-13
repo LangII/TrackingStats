@@ -37,11 +37,11 @@ cur = conn.cursor()
                                                                                ###   CONSTANTS   ###
                                                                                #####################
 
-COMPANY_ID      = 1900
+COMPANY_ID      = 507
 SHIPPED_METHOD  = 'USPS Media Mail'
 DATE_RANGE_TYPE = 'week'
-GT_ET_DATE      = '2019-10-06'
-LT_ET_DATE      = '2019-11-10'
+GT_ET_DATE      = '2019-10-13'
+LT_ET_DATE      = '2019-12-01'
 MAX_FREQ        = 14
 
 COLUMNS = ['CompanyID', 'StartDate', 'EndDate', 'TotalShipped', 'DaysMaxFreqPlus']
@@ -58,6 +58,8 @@ def main():
     df = convertStatsToDf(stats)
     df = updateDfWithMeanAndStDev(df)
     print(df)
+
+    df.to_csv('for_dave.csv')
 
     generatePlots(df)
 

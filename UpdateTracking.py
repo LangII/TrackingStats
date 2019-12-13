@@ -47,14 +47,14 @@ cur = conn.cursor()
                                                                                #####################
 
 # 'getPackages()', 'updateTableArrival()'
-COMPANY_ID = 1900
+COMPANY_ID = 735
 
 # 'getPackages()'
 SHIPPED_SERVICE = 'USPS'
 SHIPPED_METHOD  = 'USPS Media Mail'
-DAYS_AGO        = 30
-# START_DATE      = '2019-10-01'   # <-- Only used if 'DAYS_AGO = 0'.
-# END_DATE        = '2019-11-01'   # <-- Only used if 'DAYS_AGO = 0'.
+DAYS_AGO        = 60
+START_DATE      = '2019-10-01'   # <-- Only used if 'DAYS_AGO = 0'.
+END_DATE        = '2019-11-10'   # <-- Only used if 'DAYS_AGO = 0'.
 
 # Toggle 'LastChecked < TODAY' conditional from 'getPackages() query'.
 RECHECKING_TODAY = False

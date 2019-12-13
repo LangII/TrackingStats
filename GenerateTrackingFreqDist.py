@@ -39,20 +39,16 @@ cur = conn.cursor()
                                                                                ###   CONSTANTS   ###
                                                                                #####################
 
-COMPANY_ID = 1603
-
+COMPANY_ID      = 735
 SHIPPED_METHOD  = 'USPS Media Mail'
-# Has to be 'day', 'week', 'month', or 'custom'.
-DATE_RANGE_TYPE = 'week'
-START_DATE      = '2019-10-27'
-END_DATE        = '2019-11-03'
-
-MAX_FREQ = 14
+DATE_RANGE_TYPE = 'week'  # <-- Has to be 'day', 'week', 'month', or 'custom'.
+START_DATE      = '2019-11-24'
+END_DATE        = '2019-12-01'
+MAX_FREQ        = 14
 
 TBL_PS_HEADERS = ['TrackingNumber', 'CompletionDate']
 TBL_A_HEADERS  = ['MessageTimestamp', 'Delivered']
-
-DF_HEADERS = TBL_PS_HEADERS + TBL_A_HEADERS
+DF_HEADERS     = TBL_PS_HEADERS + TBL_A_HEADERS
 
 PREFIX_HEADERS = [
     'CompanyID', 'ShippedMethod', 'DateRangeType', 'StartDate', 'EndDate', 'MaxFreq', 'TotalShipped'
