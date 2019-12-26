@@ -3,6 +3,14 @@
 
 Tracking.py (module)
 
+- 2019-12-13 by David Lang
+    - update to methods:
+        - getSingleUpsJson() =  Introduce argument 'activity_type' as conditional for retrieving
+                                most recent activity or all activity; a necessary update for
+                                getSingleUpsHistory().
+    - established functioning methods:
+        - getSingleUpsHistory() = From getSingleUpsJson() parse out and return tracking history.
+
 - 2019-11-20 by David Lang
     - established functioning methods:
         - getSingleUpsJson()        = Call UPS API and return json of argued tracking number.
@@ -35,6 +43,7 @@ import requests
 import TrackingCredentials as cred
 from datetime import datetime
 from urllib.request import Request, urlopen
+from usps import USPSApi
 
 ####################################################################################################
                                                                                ###   CONSTANTS   ###
@@ -52,12 +61,17 @@ UPS_MAIL_INNOVATION_TAG = '<IncludeMailInnovationIndicator/>'
 USPS_USER_ID = cred.USPS_USER_ID
 USPS_REQUEST_DELAY = 0.10
 
-# getSingleUspsVitals()
+""" obsolete (2019-12-26) """
+# # getSingleUspsVitals()
+# USPS_DELIVERED_MESSAGES = [
+#     'Your item was delivered',                  'Your item has been delivered',
+#     'We attempted to deliver your item',        'Your item was picked up',
+#     'Your item is being held',                  'Your item was forwarded',
+#     'The return on your item was processed',    'Your item was returned'
+# ]
+
 USPS_DELIVERED_MESSAGES = [
-    'Your item was delivered',                  'Your item has been delivered',
-    'We attempted to deliver your item',        'Your item was picked up',
-    'Your item is being held',                  'Your item was forwarded',
-    'The return on your item was processed',    'Your item was returned'
+    'Delivered', 'Available for Pickup'
 ]
 
 # getSingleFedexJson()
@@ -88,6 +102,12 @@ def removeNonAscii(string, replace=''):
         return ''.join( char if ord(char) < 128 else replace for char in string )
     else:
         return string
+
+
+
+####################################################################################################
+                                                                           ###   METHODS / UPS   ###
+                                                                           #########################
 
 
 
@@ -196,9 +216,8 @@ def getSingleUpsHistory(_tracking_number):
     input:  _tracking_number = UPS tracking number to be sent to UPS API to recover tracking data.
     output: Return list-of-dicts 'history_'.  Each entity of list is a tracking event in the
             packages history.  Each entity's dictionary is comprised of:
-                history_['message'] =       String of description of event.
-                history_['time_stamp'] =    Datetime object, of time stamp when
-                                            'history_['message']' was created.
+                'message' = String of message of event.
+                'time_stamp' = Datetime object of time stamp when 'message' was created.
     """
 
     # Get the json pack from UPS API and start parsing.
@@ -217,132 +236,358 @@ def getSingleUpsHistory(_tracking_number):
 
 
 
+####################################################################################################
+                                                                          ###   METHODS / USPS   ###
+                                                                          ##########################
+
+
+
+################################################
+"""   <><><>   UNDER CONSTRUCTION   <><><>   """
+################################################
+
+
+
+track_nums = [
+    '9449009205987002812722',
+    '9449009205987002812753',
+    '9449009205987002812760',
+    '9449009205987002812791',
+    '9449009205987002812807',
+    '9449009205987002812814',
+    '9449009205987002812852',
+    '9449009205987002812869',
+    '9449009205987002812876',
+    '9449009205987002812883',
+    '9449009205987002813002',
+    '9449009205987002813071',
+    '9449009205987002813200',
+    '9449009205987503295543',
+    '9449009205987503300575',
+    '9449009205987503305266',
+    '9449009205987503311014',
+    '9449009205987503311939',
+    '9449009205987503311984',
+    '9449009205987503312011',
+    '9449009205987503312028',
+    '9449009205987503312035',
+    '9449009205987503312042',
+    '9449009205987503312059',
+    '9449009205987503312073',
+    '9449009205987503312097',
+    '9449009205987503312141',
+    '9449009205987503312158',
+    '9449009205987503312189',
+    '9449009205987503312240',
+    '9449009205987503312257',
+    '9449009205987503312264',
+    '9449009205987503312271',
+    '9449009205987503312288',
+    '9449009205987503312295',
+    '9449009205987503312325',
+    '9449009205987503312332',
+    '9449009205987503312349',
+    '9449009205987503312356',
+    '9449009205987503312363',
+    '9449009205987503312370',
+    '9449009205987503312394',
+    '9449009205987503312400',
+    '9449009205987503312417',
+    '9449009205987503312424',
+    '9449009205987503312431',
+    '9449009205987503312448',
+    '9449009205987503312455',
+    '9449009205987503312462',
+    '9449009205987503312479',
+    '9449009205987503312486',
+    '9449009205987503312493',
+    '9449009205987503312509',
+    '9449009205987503312516',
+    '9449009205987503312523',
+    '9449009205987503312530',
+    '9449009205987503312547',
+    '9449009205987503312554',
+    '9449009205987503312561',
+    '9449009205987503312585',
+    '9449009205987503312608',
+    '9449009205987503312615',
+    '9449009205987503312653',
+    '9449009205987503312677',
+    '9449009205987503312691',
+    '9449009205987503312707',
+    '9449009205987503312721',
+    '9449009205987503312745',
+    '9449009205987503312752',
+    '9449009205987503312776',
+    '9449009205987503313889',
+    '9449009205987503313995',
+    '9449009205987503314008',
+    '9449009205987503314015',
+    '9449009205987503314046',
+    '9449009205987503314480',
+    '9449009205987503314503',
+    '9449009205987503314510',
+    '9449009205987503314541',
+    '9449009205987503315722',
+    '9449009205987503315746',
+    '9449009205987503315937',
+    '9449009205987503315944',
+    '9449009205987503315951',
+    '9449009205987503315968',
+    '9449009205987503315975',
+    '9449009205987503315982',
+    '9449009205987503315999',
+    '9449009205987503316309',
+    '9449009205987503316750',
+    '9449009205987503316767',
+    '9449009205987503316781',
+    '9449009205987503316811',
+    '9449009205987503316828',
+    '9449009205987503317122',
+    '9449009205987503317146',
+    '9449009205987503317160',
+    '9449009205987503317177',
+    '9449009205987503317207',
+    '9449009205987503318211'
+]
+
+
+
 def getSingleUspsJson(_tracking_number):
     """
-    input:  constants = USPS_USER_ID, USPS_REQUEST_DELAY
-            _tracking_number = SUPS tracking number to be sent to USPS API to recover tracking data.
-    output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
+    input:  ...
+    output: ...
     """
 
-    url = 'http://production.shippingapis.com/ShippingAPI.dll'
-    xml = """
-        <? xml version="1.0" encoding="UTF-8" ?>
-        <TrackRequest USERID="{}">
-            <TrackID ID="{}"></TrackID>
-        </TrackRequest>
-    """.format(USPS_USER_ID, _tracking_number)
-    parameters = {'API': 'TrackV2', 'XML': xml}
-
-    # Attempt to connect with USPS API.  With a 3 second timeout window, if 5 attempts are made
-    # resulting in timeouts or connection errors then the program exits.
-    attempts = 0
-    time.sleep(USPS_REQUEST_DELAY)
-    try:
-        response = requests.get(url, params=parameters, timeout=3).text
-    # except (requests.exceptions.ConnectTimeout, ConnectionError, requests.exceptions.ReadTimeout):
-    except:
-        attempts += 1
-        if attempts == 5:
-            exit(">>> too many timeouts, something's wrong, exiting program...")
-        print("\n>>> connection error, trying again...\n")
-        time.sleep(3)
-        response = requests.get(url, params=parameters, timeout=3).text
-    # Convert 'xml' to 'json'.
-    usps_data_ = json.loads(json.dumps(xmltodict.parse(response)))
+    usps = USPSApi(USPS_USER_ID)
+    usps_data_ = usps.track(_tracking_number).result
 
     return usps_data_
 
 
 
-def extractUspsTimeStamp(_message):
-    """
-    input:  _message = String from USPS API describing most recent shipment activity.
-    output: Return datetime object derived from a variety of slice formats from the input
-            '_message'.  The USPS API outputs many various formats for their shipment activity
-            messages.  This function sorts through '_message' to find the correct values for the
-            datetime object.
-    """
-    # The primary time stamp indicator from '_message' is the ':' from hours/minutes.  So, we first
-    # find the index of ':' as a starting point.  If no ':', return empty string.
-    colon = _message.find(':')
-    if colon == -1:  return ''
-    # Get number of digit places for hours.
-    if _message[colon - 2] == '1':  hour_digits = 2
-    else:                           hour_digits = 1
-
-    # if/else sorts between '_message' formats of time-before-date and date-before-time.
-    if _message[colon:].find('on') == 7:
-        # If time-before-date, then we quickly get 'time_string' with 'begin' value starting
-        # immediately before hours, and 'end' value is found 6 digits beyond ','.
-        begin = colon - hour_digits
-        end = colon + _message[colon:].find(',') + 6
-        time_string = _message[begin:end]
-
-        return datetime.strptime(time_string, '%I:%M %p on %B %d, %Y')
-
-    else:
-        # There are 2 possible variations to the date-before-time format.  One is preceded with 'of'
-        # and parsed with ',', the other is preceded with 'on' and parsed with 'at'.  These if/else
-        # conditions determine which this '_message' is, using 'cut_point' as reference.  Then
-        # assigns values to 'cut_more' and 'look_for' for use in slicing out 'time_string'
-        # from '_message'.
-        cut_point = colon - hour_digits - 2
-        if _message[cut_point] == ',':  cut_more, look_for = 0, 'of'
-        else:                           cut_more, look_for = 2, 'on'
-        time_string = _message[:cut_point - cut_more] + _message[cut_point + 1:]
-        # Have to reset value of 'colon' due to previous slicing.
-        colon = time_string.find(':')
-        begin = time_string[:colon].rfind(look_for) + 3
-        end = colon + 6
-        time_string = time_string[begin:end]
-
-        return datetime.strptime(time_string, '%B %d, %Y %I:%M %p')
-
-
-
 def getSingleUspsVitals(_tracking_number):
     """
-    input:  constants = DELIVERED_MESSAGES
+    input:  constants = USPS_DELIVERED_MESSAGES
             _tracking_number = USPS tracking number to be sent to USPS API to recover tracking data.
-    output: details_['delivered'] =     Bool, True if package has been delivered, else False.
-            details_['message'] =       String, of most recently updated tracking message.
-            details_['time_stamp'] =    Datetime object, of time stamp when 'details_['message']'
-                                        was created.
+    output: vitals_['delivered'] =  Bool, True if package has been delivered, else False.
+            vitals_['message'] =    String, of most recently updated tracking message.
+            vitals_['time_stamp'] = Datetime object, of time stamp when 'vitals_['message']' was
+                                    created.
     """
 
-    # Get the json pack from USPS API and parse 'message' with try/except for common errors.
-    usps_data = getSingleUspsJson(_tracking_number)
-    try:
-        message = usps_data['TrackResponse']['TrackInfo']['TrackSummary']
-    except KeyError:
-        print(">>> bad response, ignoring shipment...\n")
-        return "bad response"
+    vitals_ = { 'delivered': False, 'message': '', 'time_stamp': '' }
 
-    # try/except uses 'removeNonAscii()' to clean string 'message'.
-    try:
-        print(">>> looking for non-ascii...", message)
-    except UnicodeEncodeError:
-        message = removeNonAscii(message)
-        print(">>> non-ascii found...", message)
-    # Extract bool 'delivered' from 'message' using 'DELIVERED_MESSAGES'.
-    delivered = False
-    for dm in USPS_DELIVERED_MESSAGES:
-        if message.startswith(dm):
-            delivered = True
+    # Get the json pack from USPS API and start parsing.
+    usps_data = getSingleUspsJson(_tracking_number)
+    usps_data = usps_data['TrackResponse']['TrackInfo']
+    # 'if' block handles bad tracking numbers.
+    if 'Error' in usps_data:
+        vitals_['message'] = usps_data['Error']['Description']
+        return vitals_
+    usps_data = usps_data['TrackSummary']
+
+    # Get 'message'.
+    vitals_['message'] = usps_data['Event']
+    for loc in ['EventCity', 'EventState', 'EventCountry']:
+        if usps_data[loc] != None:  vitals_['message'] += ' ' + usps_data[loc]
+
+    # Get 'delivered'.
+    for message in USPS_DELIVERED_MESSAGES:
+        if message in vitals_['message']:
+            vitals_['delivered'] = True
             break
-    # Extract 'time_stamp' from 'message'.
-    time_stamp = extractUspsTimeStamp(message)
-    vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
+
+    # Get 'time_stamp', if/else handles possible missing 'EventTime'.
+    if usps_data['EventTime'] != None:
+        date_time = usps_data['EventDate'] + usps_data['EventTime']
+        vitals_['time_stamp'] = datetime.strptime(date_time, '%B %d, %Y%I:%M %p')
+    else:
+        vitals_['time_stamp'] = datetime.strptime(usps_data['EventDate'], '%B %d, %Y')
 
     return vitals_
 
 
 
-def getSingleFedExJson(_tracking_number):
+def getSingleUspsHistory(_tracking_number):
+    """
+    input:  _tracking_number = USPS tracking number to be sent to USPS API to recover tracking data.
+    output: Return list-of-dicts 'history_'.  Each entity of list is a tracking event in the
+            package's history.  Each entity's dictionary is comprised of:
+                'message' = String of message of event.
+                'time_stamp' = Datetime object of time stamp when 'message' was created.
+    """
 
-    ################################################
-    """   <><><>   UNDER CONSTRUCTION   <><><>   """
-    ################################################
+    history_ = []
+
+    return history_
+
+
+
+for num in track_nums:
+    print(num)
+    vitals = getSingleUspsVitals(num)
+    # print(vitals['message'])
+    print(vitals)
+    print("")
+
+# print(json.dumps(getSingleUspsJson('9449009205987503199995'), indent=4, sort_keys=True))
+
+# vitals = getSingleUspsVitals('0004000074527923587442303000014')
+# print(vitals)
+
+# usps_json = getSingleUspsJson('0004000074527923587442303000014') # bad tracking number
+# usps_json = getSingleUspsJson('9405509205987002360064') # no event time
+
+# print(json.dumps(usps_json, indent=4, sort_keys=True))
+
+exit()
+
+
+
+################################################
+"""   <><><>   UNDER CONSTRUCTION   <><><>   """
+################################################
+
+
+
+""" obsolete (2019-12-26) """
+# def getSingleUspsJson(_tracking_number):
+#     """
+#     input:  constants = USPS_USER_ID, USPS_REQUEST_DELAY
+#             _tracking_number = SUPS tracking number to be sent to USPS API to recover tracking data.
+#     output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
+#     """
+#
+#     url = 'http://production.shippingapis.com/ShippingAPI.dll'
+#     xml = """
+#         <? xml version="1.0" encoding="UTF-8" ?>
+#         <TrackRequest USERID="{}">
+#             <TrackID ID="{}"></TrackID>
+#         </TrackRequest>
+#     """.format(USPS_USER_ID, _tracking_number)
+#     parameters = {'API': 'TrackV2', 'XML': xml}
+#
+#     # Attempt to connect with USPS API.  With a 3 second timeout window, if 5 attempts are made
+#     # resulting in timeouts or connection errors then the program exits.
+#     attempts = 0
+#     time.sleep(USPS_REQUEST_DELAY)
+#     try:
+#         response = requests.get(url, params=parameters, timeout=3).text
+#     # except (requests.exceptions.ConnectTimeout, ConnectionError, requests.exceptions.ReadTimeout):
+#     except:
+#         attempts += 1
+#         if attempts == 5:
+#             exit(">>> too many timeouts, something's wrong, exiting program...")
+#         print("\n>>> connection error, trying again...\n")
+#         time.sleep(3)
+#         response = requests.get(url, params=parameters, timeout=3).text
+#     # Convert 'xml' to 'json'.
+#     usps_data_ = json.loads(json.dumps(xmltodict.parse(response)))
+#
+#     return usps_data_
+
+
+
+""" obsolete (2019-12-26) """
+# def extractUspsTimeStamp(_message):
+#     """
+#     input:  _message = String from USPS API describing most recent shipment activity.
+#     output: Return datetime object derived from a variety of slice formats from the input
+#             '_message'.  The USPS API outputs many various formats for their shipment activity
+#             messages.  This function sorts through '_message' to find the correct values for the
+#             datetime object.
+#     """
+#     # The primary time stamp indicator from '_message' is the ':' from hours/minutes.  So, we first
+#     # find the index of ':' as a starting point.  If no ':', return empty string.
+#     colon = _message.find(':')
+#     if colon == -1:  return ''
+#     # Get number of digit places for hours.
+#     if _message[colon - 2] == '1':  hour_digits = 2
+#     else:                           hour_digits = 1
+#
+#     # if/else sorts between '_message' formats of time-before-date and date-before-time.
+#     if _message[colon:].find('on') == 7:
+#         # If time-before-date, then we quickly get 'time_string' with 'begin' value starting
+#         # immediately before hours, and 'end' value is found 6 digits beyond ','.
+#         begin = colon - hour_digits
+#         end = colon + _message[colon:].find(',') + 6
+#         time_string = _message[begin:end]
+#
+#         return datetime.strptime(time_string, '%I:%M %p on %B %d, %Y')
+#
+#     else:
+#         # There are 2 possible variations to the date-before-time format.  One is preceded with 'of'
+#         # and parsed with ',', the other is preceded with 'on' and parsed with 'at'.  These if/else
+#         # conditions determine which this '_message' is, using 'cut_point' as reference.  Then
+#         # assigns values to 'cut_more' and 'look_for' for use in slicing out 'time_string'
+#         # from '_message'.
+#         cut_point = colon - hour_digits - 2
+#         if _message[cut_point] == ',':  cut_more, look_for = 0, 'of'
+#         else:                           cut_more, look_for = 2, 'on'
+#         time_string = _message[:cut_point - cut_more] + _message[cut_point + 1:]
+#         # Have to reset value of 'colon' due to previous slicing.
+#         colon = time_string.find(':')
+#         begin = time_string[:colon].rfind(look_for) + 3
+#         end = colon + 6
+#         time_string = time_string[begin:end]
+#
+#         return datetime.strptime(time_string, '%B %d, %Y %I:%M %p')
+
+
+
+""" obsolete (2019-12-26) """
+# def getSingleUspsVitals(_tracking_number):
+#     """
+#     input:  constants = DELIVERED_MESSAGES
+#             _tracking_number = USPS tracking number to be sent to USPS API to recover tracking data.
+#     output: details_['delivered'] =     Bool, True if package has been delivered, else False.
+#             details_['message'] =       String, of most recently updated tracking message.
+#             details_['time_stamp'] =    Datetime object, of time stamp when 'details_['message']'
+#                                         was created.
+#     """
+#
+#     # Get the json pack from USPS API and parse 'message' with try/except for common errors.
+#     usps_data = getSingleUspsJson(_tracking_number)
+#     try:
+#         message = usps_data['TrackResponse']['TrackInfo']['TrackSummary']
+#     except KeyError:
+#         print(">>> bad response, ignoring shipment...\n")
+#         return "bad response"
+#
+#     # try/except uses 'removeNonAscii()' to clean string 'message'.
+#     try:
+#         print(">>> looking for non-ascii...", message)
+#     except UnicodeEncodeError:
+#         message = removeNonAscii(message)
+#         print(">>> non-ascii found...", message)
+#     # Extract bool 'delivered' from 'message' using 'DELIVERED_MESSAGES'.
+#     delivered = False
+#     for dm in USPS_DELIVERED_MESSAGES:
+#         if message.startswith(dm):
+#             delivered = True
+#             break
+#     # Extract 'time_stamp' from 'message'.
+#     time_stamp = extractUspsTimeStamp(message)
+#     vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
+#
+#     return vitals_
+
+
+
+####################################################################################################
+                                                                         ###   METHODS / FEDEX   ###
+                                                                         ###########################
+
+
+
+def getSingleFedExJson(_tracking_number):
+    """
+    input:  constants = FEDEX_ACCOUNT_NUMBER, FEDEX_METER_NUMBER, FEDEX_KEY, FEDEX_PASSWORD
+            _tracking_number =  FedEx tracking number to be sent to FedEx API to recover tracking
+                                data.
+    output: Return json 'fedex_data_' of response from FedEx API for input '_tracking_number'.
+    """
 
     xml = """
         <soapenv:Envelope
@@ -452,6 +697,12 @@ def getSingleFedExVitals(_tracking_number):
 
     details_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
     return details_
+
+
+
+####################################################################################################
+                                                                           ###   METHODS / DHL   ###
+                                                                           #########################
 
 
 
