@@ -129,7 +129,7 @@ def getSingleUpsJson(_tracking_number, activity_type='last'):
             'activity_type'.
     """
 
-    # String argument handling.
+    # Handling of string arg 'activity_type'.
     if activity_type == 'last':
         customer_context, request_option = 'get tracking last activity', '0'
     elif activity_type == 'all':
@@ -178,13 +178,13 @@ def getSingleUpsJson(_tracking_number, activity_type='last'):
 def getSingleUpsVitals(_tracking_number):
     """
     input:  _tracking_number = UPS tracking number to be sent to UPS API to recover tracking data.
-    output: details_['delivered'] =     Bool, True if package has been delivered, else False.
-            details_['message'] =       String, of most recently updated tracking message.
-            details_['time_stamp'] =    Datetime object, of time stamp when 'details_['message']'
-                                        was created.
+    output: vitals_['delivered'] =  Bool, True if package has been delivered, else False.
+            vitals_['message'] =    String, of most recently updated tracking message.
+            vitals_['time_stamp'] = Datetime object, of time stamp when 'details_['message']' was
+                                    created.
     """
 
-    delivered, message, time_stamp = False, '', datetime(1, 1, 1)
+    vitals_ = { 'delivered': False, 'message': '', 'time_stamp': '' }
 
     # Get the json pack from UPS API and start parsing.
     ups_data = getSingleUpsJson(_tracking_number)
@@ -193,8 +193,9 @@ def getSingleUpsVitals(_tracking_number):
     if isinstance(ups_data, dict):  ups_data = ups_data['Package']
     else:  ups_data = ups_data[0]['Package']
 
-    # Toggle 'delivered' upon value of ['DeliveryIndicator'].
+    # Toggle 'delivered' from value of ['DeliveryIndicator'].
     if ups_data['DeliveryIndicator'] == 'Y':  delivered = True
+
     # Get 'message_' directly from ['Description'].
     message = ups_data['Activity']['Status']['StatusType']['Description']
     # try/except uses 'removeNonAscii()' to clean string 'message'.
@@ -208,12 +209,13 @@ def getSingleUpsVitals(_tracking_number):
     loc_keys = ['City', 'StateProvinceCode', 'CountryCode', 'PostalCode']
     location = ' '.join([ location[key] for key in loc_keys if key in location ])
     message = message + ' at ' + location
+
     # Build 'date' as datetime object from ['Date'].
     time_stamp = ups_data['Activity']['Date']
     time_stamp = datetime.strptime(time_stamp, '%Y%m%d')
 
-    details_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
-    return details_
+    vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
+    return vitals_
 
 
 
@@ -251,7 +253,6 @@ def getSingleUpsHistory(_tracking_number):
 def getSingleUspsJson(_tracking_number):
     """
     input:  constants =         USPS_USER_ID
-                                UPS_ONLINETOOLS_URL, UPS_REQUEST_HEADERS, UPS_MAIL_INNOVATION_TAG
             _tracking_number =  USPS tracking number to be sent to USPS API to recover tracking
                                 data.
     output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
