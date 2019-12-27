@@ -3,12 +3,20 @@
 
 Tracking.py (module)
 
+- 2019-12-26 by David Lang
+    - updated methods:
+        - getSingleUspsJson() = Now using USPSApi module for easier json, message, and time stamp
+                                parsing.
+        - getSingleUspsVitals() = Had to update parsing due to update to getSingleUspsJson().
+    - established methods:
+        - getSingleUspsHistory() = From getSingleUspsJson() parse out and return tracking history.
+
 - 2019-12-13 by David Lang
-    - update to methods:
+    - updated methods:
         - getSingleUpsJson() =  Introduce argument 'activity_type' as conditional for retrieving
                                 most recent activity or all activity; a necessary update for
                                 getSingleUpsHistory().
-    - established functioning methods:
+    - established methods:
         - getSingleUpsHistory() = From getSingleUpsJson() parse out and return tracking history.
 
 - 2019-11-20 by David Lang
@@ -61,6 +69,8 @@ UPS_MAIL_INNOVATION_TAG = '<IncludeMailInnovationIndicator/>'
 USPS_USER_ID = cred.USPS_USER_ID
 USPS_REQUEST_DELAY = 0.10
 
+USPS_DELIVERED_MESSAGES = ['Delivered', 'Available for Pickup']
+
 """ obsolete (2019-12-26) """
 # # getSingleUspsVitals()
 # USPS_DELIVERED_MESSAGES = [
@@ -69,10 +79,6 @@ USPS_REQUEST_DELAY = 0.10
 #     'Your item is being held',                  'Your item was forwarded',
 #     'The return on your item was processed',    'Your item was returned'
 # ]
-
-USPS_DELIVERED_MESSAGES = [
-    'Delivered', 'Available for Pickup'
-]
 
 # getSingleFedexJson()
 FEDEX_KEY = cred.FEDEX_KEY
@@ -106,8 +112,8 @@ def removeNonAscii(string, replace=''):
 
 
 ####################################################################################################
-                                                                           ###   METHODS / UPS   ###
-                                                                           #########################
+                                                            ###   METHODS   ###      ###   UPS   ###
+                                                            ###################      ###############
 
 
 
@@ -237,126 +243,18 @@ def getSingleUpsHistory(_tracking_number):
 
 
 ####################################################################################################
-                                                                          ###   METHODS / USPS   ###
-                                                                          ##########################
-
-
-
-################################################
-"""   <><><>   UNDER CONSTRUCTION   <><><>   """
-################################################
-
-
-
-track_nums = [
-    '9449009205987002812722',
-    '9449009205987002812753',
-    '9449009205987002812760',
-    '9449009205987002812791',
-    '9449009205987002812807',
-    '9449009205987002812814',
-    '9449009205987002812852',
-    '9449009205987002812869',
-    '9449009205987002812876',
-    '9449009205987002812883',
-    '9449009205987002813002',
-    '9449009205987002813071',
-    '9449009205987002813200',
-    '9449009205987503295543',
-    '9449009205987503300575',
-    '9449009205987503305266',
-    '9449009205987503311014',
-    '9449009205987503311939',
-    '9449009205987503311984',
-    '9449009205987503312011',
-    '9449009205987503312028',
-    '9449009205987503312035',
-    '9449009205987503312042',
-    '9449009205987503312059',
-    '9449009205987503312073',
-    '9449009205987503312097',
-    '9449009205987503312141',
-    '9449009205987503312158',
-    '9449009205987503312189',
-    '9449009205987503312240',
-    '9449009205987503312257',
-    '9449009205987503312264',
-    '9449009205987503312271',
-    '9449009205987503312288',
-    '9449009205987503312295',
-    '9449009205987503312325',
-    '9449009205987503312332',
-    '9449009205987503312349',
-    '9449009205987503312356',
-    '9449009205987503312363',
-    '9449009205987503312370',
-    '9449009205987503312394',
-    '9449009205987503312400',
-    '9449009205987503312417',
-    '9449009205987503312424',
-    '9449009205987503312431',
-    '9449009205987503312448',
-    '9449009205987503312455',
-    '9449009205987503312462',
-    '9449009205987503312479',
-    '9449009205987503312486',
-    '9449009205987503312493',
-    '9449009205987503312509',
-    '9449009205987503312516',
-    '9449009205987503312523',
-    '9449009205987503312530',
-    '9449009205987503312547',
-    '9449009205987503312554',
-    '9449009205987503312561',
-    '9449009205987503312585',
-    '9449009205987503312608',
-    '9449009205987503312615',
-    '9449009205987503312653',
-    '9449009205987503312677',
-    '9449009205987503312691',
-    '9449009205987503312707',
-    '9449009205987503312721',
-    '9449009205987503312745',
-    '9449009205987503312752',
-    '9449009205987503312776',
-    '9449009205987503313889',
-    '9449009205987503313995',
-    '9449009205987503314008',
-    '9449009205987503314015',
-    '9449009205987503314046',
-    '9449009205987503314480',
-    '9449009205987503314503',
-    '9449009205987503314510',
-    '9449009205987503314541',
-    '9449009205987503315722',
-    '9449009205987503315746',
-    '9449009205987503315937',
-    '9449009205987503315944',
-    '9449009205987503315951',
-    '9449009205987503315968',
-    '9449009205987503315975',
-    '9449009205987503315982',
-    '9449009205987503315999',
-    '9449009205987503316309',
-    '9449009205987503316750',
-    '9449009205987503316767',
-    '9449009205987503316781',
-    '9449009205987503316811',
-    '9449009205987503316828',
-    '9449009205987503317122',
-    '9449009205987503317146',
-    '9449009205987503317160',
-    '9449009205987503317177',
-    '9449009205987503317207',
-    '9449009205987503318211'
-]
+                                                           ###   METHODS   ###      ###   USPS   ###
+                                                           ###################      ################
 
 
 
 def getSingleUspsJson(_tracking_number):
     """
-    input:  ...
-    output: ...
+    input:  constants =         USPS_USER_ID
+                                UPS_ONLINETOOLS_URL, UPS_REQUEST_HEADERS, UPS_MAIL_INNOVATION_TAG
+            _tracking_number =  USPS tracking number to be sent to USPS API to recover tracking
+                                data.
+    output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
     """
 
     usps = USPSApi(USPS_USER_ID)
@@ -418,36 +316,34 @@ def getSingleUspsHistory(_tracking_number):
                 'time_stamp' = Datetime object of time stamp when 'message' was created.
     """
 
+    # Get json from USPS API and start parsing.
+    usps_data = getSingleUspsJson(_tracking_number)
+    usps_data = usps_data['TrackResponse']['TrackInfo']
+    # 'if' block handles bad tracking numbers.
+    if 'Error' in usps_data:
+        return [{ 'message': usps_data['Error']['Description'], 'time_stamp': '' }]
+    usps_data = usps_data['TrackDetail']
+
+    # Loop through 'TrackDetail' from USPS json and build 'history_'.
     history_ = []
+    for detail in usps_data:
+        message, time_stamp = '', ''
+
+        # Get 'message'.
+        message = detail['Event']
+        for loc in ['EventCity', 'EventState', 'EventCountry']:
+            if detail[loc] != None:  message += ' ' + detail[loc]
+
+        # Get 'time_stamp', if/else handles possible missing 'EventTime'.
+        if detail['EventTime'] != None:
+            date_time = detail['EventDate'] + detail['EventTime']
+            time_stamp = datetime.strptime(date_time, '%B %d, %Y%I:%M %p')
+        else:
+            time_stamp = datetime.strptime(detail['EventDate'], '%B %d, %Y')
+
+        history_ += [{ 'message': message, 'time_stamp': time_stamp }]
 
     return history_
-
-
-
-for num in track_nums:
-    print(num)
-    vitals = getSingleUspsVitals(num)
-    # print(vitals['message'])
-    print(vitals)
-    print("")
-
-# print(json.dumps(getSingleUspsJson('9449009205987503199995'), indent=4, sort_keys=True))
-
-# vitals = getSingleUspsVitals('0004000074527923587442303000014')
-# print(vitals)
-
-# usps_json = getSingleUspsJson('0004000074527923587442303000014') # bad tracking number
-# usps_json = getSingleUspsJson('9405509205987002360064') # no event time
-
-# print(json.dumps(usps_json, indent=4, sort_keys=True))
-
-exit()
-
-
-
-################################################
-"""   <><><>   UNDER CONSTRUCTION   <><><>   """
-################################################
 
 
 
@@ -576,8 +472,8 @@ exit()
 
 
 ####################################################################################################
-                                                                         ###   METHODS / FEDEX   ###
-                                                                         ###########################
+                                                          ###   METHODS   ###      ###   FEDEX   ###
+                                                          ###################      #################
 
 
 
@@ -701,17 +597,18 @@ def getSingleFedExVitals(_tracking_number):
 
 
 ####################################################################################################
-                                                                           ###   METHODS / DHL   ###
-                                                                           #########################
+                                                            ###   METHODS   ###      ###   DHL   ###
+                                                            ###################      ###############
+
+
+
+################################################
+"""   <><><>   UNDER CONSTRUCTION   <><><>   """
+################################################
 
 
 
 def getSingleDhlJson(_tracking_number):
-
-    ################################################
-    """   <><><>   UNDER CONSTRUCTION   <><><>   """
-    ################################################
-
     """
     input:  _tracking_number = DHL tracking number to be sent to DHL API to recover tracking data.
     output: ups_data_ = A json in dict format, of the UPS response to '_tracking_number'.
@@ -748,11 +645,6 @@ def getSingleDhlJson(_tracking_number):
 
 
 def getSingleDhlVitals(_tracking_number):
-
-    ################################################
-    """   <><><>   UNDER CONSTRUCTION   <><><>   """
-    ################################################
-
     """
     input:  _tracking_number = DHL tracking number to be sent to DHL API to recover tracking data.
     output: delivered_ = Bool, True if package has been delivered, else False.
@@ -766,3 +658,9 @@ def getSingleDhlVitals(_tracking_number):
     ###
 
     return (delivered_, message_, date_, location_)
+
+
+
+################################################
+"""   <><><>   UNDER CONSTRUCTION   <><><>   """
+################################################
