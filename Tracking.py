@@ -3,12 +3,16 @@
 
 Tracking.py (module)
 
+- 2020-01-06 by David Lang
+    - updated methods:
+        - getSingleUpsJson(), getSingleUpsVitals(), getSingleUpsHistory() = Updated error handling.
+
 - 2019-12-26 by David Lang
     - updated methods:
         - getSingleUspsJson() = Now using USPSApi module for easier json, message, and time stamp
                                 parsing.
         - getSingleUspsVitals() = Had to update parsing due to update to getSingleUspsJson().
-    - established methods:
+    - created method:
         - getSingleUspsHistory() = From getSingleUspsJson() parse out and return tracking history.
 
 - 2019-12-13 by David Lang
@@ -16,11 +20,11 @@ Tracking.py (module)
         - getSingleUpsJson() =  Introduce argument 'activity_type' as conditional for retrieving
                                 most recent activity or all activity; a necessary update for
                                 getSingleUpsHistory().
-    - established methods:
+    - created method:
         - getSingleUpsHistory() = From getSingleUpsJson() parse out and return tracking history.
 
 - 2019-11-20 by David Lang
-    - established functioning methods:
+    - created methods:
         - getSingleUpsJson()        = Call UPS API and return json of argued tracking number.
         - getSingleUpsVitals()      = From getSingleUpsJson() parse out and return vital data.
         - getSingleUspsJson()       = Call UPS API and retrieve json of argued tracking number.
@@ -196,10 +200,16 @@ def getSingleUpsVitals(_tracking_number):
                                     created.
     """
 
-    vitals_ = { 'delivered': False, 'message': '', 'time_stamp': '' }
+    # vitals_ = { 'delivered': False, 'message': '', 'time_stamp': '' }
+    delivered, message, time_stamp = False, '', ''
 
     # Get the json pack from UPS API and start parsing.
     ups_data = getSingleUpsJson(_tracking_number)
+    # 'if' block handles bad tracking numbers.
+    if 'Error' in ups_data['TrackResponse']['Response']:
+        message = ups_data['TrackResponse']['Response']['Error']['ErrorDescription']
+        vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
+        return vitals_
     ups_data = ups_data['TrackResponse']['Shipment']
     # Check for odd json response format; sometimes ['Shipment'] is a list-of-dicts, not dict.
     if isinstance(ups_data, dict):  ups_data = ups_data['Package']
@@ -243,6 +253,13 @@ def getSingleUpsHistory(_tracking_number):
 
     # Get the json pack from UPS API and start parsing.
     ups_data = getSingleUpsJson(_tracking_number, 'all')
+    # 'if' block handles bad tracking numbers.
+    if 'Error' in ups_data['TrackResponse']['Response']:
+        return [{
+            'message': ups_data['TrackResponse']['Response']['Error']['ErrorDescription'],
+            'location': '',
+            'time_stamp': ''
+        }]
     ups_data = ups_data['TrackResponse']['Shipment']['Package']['Activity']
 
     # Populate return object 'history_' with data from iterations of 'ups_data'.
