@@ -47,7 +47,7 @@ cur = conn.cursor()
                                                                                #####################
 
 # 'getPackages()', 'updateTableArrival()'
-COMPANY_ID = 735
+COMPANY_ID = 507
 
 # 'getPackages()'
 SHIPPED_SERVICE = 'USPS'

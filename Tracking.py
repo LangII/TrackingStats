@@ -30,9 +30,13 @@ Tracking.py (module)
 
 """
 
+
+
 ####################################################################################################
                                                                                  ###   IMPORTS   ###
                                                                                  ###################
+
+
 
 # # KEEP FOR EXPORTING
 # import sys
@@ -53,9 +57,13 @@ from datetime import datetime
 from urllib.request import Request, urlopen
 from usps import USPSApi
 
+
+
 ####################################################################################################
                                                                                ###   CONSTANTS   ###
                                                                                #####################
+
+
 
 # getSingleUpsJson()
 UPS_ACCESS_LICENSE_NUMBER = cred.UPS_ACCESS_LICENSE_NUMBER
@@ -94,9 +102,13 @@ DHL_USERNAME = cred.DHL_USERNAME
 DHL_PASSWORD = cred.DHL_PASSWORD
 DHL_CLIENT_ID = cred.DHL_CLIENT_ID
 
+
+
 ####################################################################################################
                                                                                  ###   METHODS   ###
                                                                                  ###################
+
+
 
 def removeNonAscii(string, replace=''):
     """
@@ -112,8 +124,8 @@ def removeNonAscii(string, replace=''):
 
 
 ####################################################################################################
-                                                            ###   METHODS   ###      ###   UPS   ###
-                                                            ###################      ###############
+                                                                           ###   METHODS / UPS   ###
+                                                                           #########################
 
 
 
@@ -225,7 +237,8 @@ def getSingleUpsHistory(_tracking_number):
     output: Return list-of-dicts 'history_'.  Each entity of list is a tracking event in the
             packages history.  Each entity's dictionary is comprised of:
                 'message' = String of message of event.
-                'time_stamp' = Datetime object of time stamp when 'message' was created.
+                'location' = String of location of event.
+                'time_stamp' = Datetime object of time stamp of event.
     """
 
     # Get the json pack from UPS API and start parsing.
@@ -235,18 +248,29 @@ def getSingleUpsHistory(_tracking_number):
     # Populate return object 'history_' with data from iterations of 'ups_data'.
     history_ = []
     for activity in ups_data:
-        history_ += [{
-            'message': activity['Status']['StatusType']['Description'],
-            'time_stamp': datetime.strptime(activity['Date'] + activity['Time'], '%Y%m%d%H%M')
-        }]
+        message, location, time_stamp = '', '', ''
+
+        # Get 'history_['message']' value.
+        message = activity['Status']['StatusType']['Description']
+
+        # Get 'history_['location']' value.
+        activity_loc = activity['ActivityLocation']['Address']
+        loc_keys = ['City', 'StateProvinceCode', 'CountryCode', 'PostalCode']
+        location = ' '.join([ activity_loc[key] for key in loc_keys if key in activity_loc ])
+
+        # Get 'history_['time_stamp']' value.
+        time_stamp = datetime.strptime(activity['Date'] + activity['Time'], '%Y%m%d%H%M')
+
+        # Iterate build of 'history_'.
+        history_ += [{ 'message': message, 'location': location, 'time_stamp': time_stamp }]
 
     return history_
 
 
 
 ####################################################################################################
-                                                           ###   METHODS   ###      ###   USPS   ###
-                                                           ###################      ################
+                                                                          ###   METHODS / USPS   ###
+                                                                          ##########################
 
 
 
@@ -314,7 +338,8 @@ def getSingleUspsHistory(_tracking_number):
     output: Return list-of-dicts 'history_'.  Each entity of list is a tracking event in the
             package's history.  Each entity's dictionary is comprised of:
                 'message' = String of message of event.
-                'time_stamp' = Datetime object of time stamp when 'message' was created.
+                'location' = String of location of event.
+                'time_stamp' = Datetime object of time stamp of event.
     """
 
     # Get json from USPS API and start parsing.
@@ -322,27 +347,29 @@ def getSingleUspsHistory(_tracking_number):
     usps_data = usps_data['TrackResponse']['TrackInfo']
     # 'if' block handles bad tracking numbers.
     if 'Error' in usps_data:
-        return [{ 'message': usps_data['Error']['Description'], 'time_stamp': '' }]
+        return [{ 'message': usps_data['Error']['Description'], 'location': '', 'time_stamp': '' }]
     usps_data = usps_data['TrackDetail']
 
     # Loop through 'TrackDetail' from USPS json and build 'history_'.
     history_ = []
     for detail in usps_data:
-        message, time_stamp = '', ''
+        message, location, time_stamp = '', '', ''
 
-        # Get 'message'.
+        # Get value of 'history_['message']'.
         message = detail['Event']
-        for loc in ['EventCity', 'EventState', 'EventCountry']:
-            if detail[loc] != None:  message += ' ' + detail[loc]
 
-        # Get 'time_stamp', if/else handles possible missing 'EventTime'.
+        # Get value of 'history_['location']'.
+        loc_keys = ['EventCity', 'EventState', 'EventCountry', 'EventZIPCode']
+        location = ' '.join([ detail[key] for key in loc_keys if detail[key] != None ])
+
+        # Get value of 'history_['time_stamp'].  if/else handles possible missing 'EventTime'.
         if detail['EventTime'] != None:
             date_time = detail['EventDate'] + detail['EventTime']
             time_stamp = datetime.strptime(date_time, '%B %d, %Y%I:%M %p')
         else:
             time_stamp = datetime.strptime(detail['EventDate'], '%B %d, %Y')
 
-        history_ += [{ 'message': message, 'time_stamp': time_stamp }]
+        history_ += [{ 'message': message, 'location': location, 'time_stamp': time_stamp }]
 
     return history_
 
@@ -473,8 +500,8 @@ def getSingleUspsHistory(_tracking_number):
 
 
 ####################################################################################################
-                                                          ###   METHODS   ###      ###   FEDEX   ###
-                                                          ###################      #################
+                                                                         ###   METHODS / FEDEX   ###
+                                                                         ###########################
 
 
 
@@ -598,8 +625,8 @@ def getSingleFedExVitals(_tracking_number):
 
 
 ####################################################################################################
-                                                            ###   METHODS   ###      ###   DHL   ###
-                                                            ###################      ###############
+                                                                           ###   METHODS / DHL   ###
+                                                                           #########################
 
 
 

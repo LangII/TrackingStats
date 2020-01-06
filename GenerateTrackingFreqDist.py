@@ -42,8 +42,8 @@ cur = conn.cursor()
 COMPANY_ID      = 735
 SHIPPED_METHOD  = 'USPS Media Mail'
 DATE_RANGE_TYPE = 'week'  # <-- Has to be 'day', 'week', 'month', or 'custom'.
-START_DATE      = '2019-11-24'
-END_DATE        = '2019-12-01'
+START_DATE      = '2019-12-01'
+END_DATE        = '2019-12-08'
 MAX_FREQ        = 14
 
 TBL_PS_HEADERS = ['TrackingNumber', 'CompletionDate']

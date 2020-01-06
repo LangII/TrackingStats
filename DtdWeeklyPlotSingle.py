@@ -37,10 +37,10 @@ cur = conn.cursor()
                                                                                ###   CONSTANTS   ###
                                                                                #####################
 
-COMPANY_ID      = 507
+COMPANY_ID      = 735
 SHIPPED_METHOD  = 'USPS Media Mail'
 DATE_RANGE_TYPE = 'week'
-GT_ET_DATE      = '2019-10-13'
+GT_ET_DATE      = '2019-10-06'
 LT_ET_DATE      = '2019-12-01'
 MAX_FREQ        = 14
 
@@ -59,7 +59,7 @@ def main():
     df = updateDfWithMeanAndStDev(df)
     print(df)
 
-    df.to_csv('for_dave.csv')
+    df.to_csv('prints/print_out.csv')
 
     generatePlots(df)
 
@@ -201,7 +201,6 @@ def generatePlots(_df):
             bbox={'boxstyle': 'square', 'fc': 'white', 'ec': 'brown'}
         )
     packages.set_ylim(0, packages.set_ylim()[1] * 1.2)
-
 
     # Generate scatter plot size legend.
     handles, labels = dtd_scatter.legend_elements(prop='sizes', alpha=1, color='teal')

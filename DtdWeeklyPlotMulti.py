@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 ####################################################################################################
                                                                                  ###   GLOBALS   ###
                                                                                  ###################
+
 begin = datetime.now()
 
 conn = Connections.connect()
@@ -182,8 +183,6 @@ def generatePlots(_df):
     plt.xticks(rotation=30, ha='right')
     fig.tight_layout()
     plt.show()
-
-
 
 
 
