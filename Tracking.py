@@ -293,9 +293,8 @@ def getSingleUpsHistory(_tracking_number):
 
 def getSingleUspsJson(_tracking_number):
     """
-    input:  constants =         USPS_USER_ID
-            _tracking_number =  USPS tracking number to be sent to USPS API to recover tracking
-                                data.
+    input:  constants = USPS_USER_ID
+            _tracking_number = USPS tracking number to be sent to USPS API to recover tracking data.
     output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
     """
 
@@ -359,34 +358,37 @@ def getSingleUspsHistory(_tracking_number):
                 'time_stamp' = Datetime object of time stamp of event.
     """
 
+    def parseEventDict(_event):
+        """ Subroutine: Parse and return selected data from json event dict. """
+        message, location, time_stamp = '', '', ''
+
+        # Get 'message'.
+        message = _event['Event']
+        # Get 'location'.
+        loc_keys = ['EventCity', 'EventState', 'EventCountry', 'EventZIPCode']
+        location = ' '.join([ _event[key] for key in loc_keys if _event[key] != None ])
+        # Get 'time_stamp'.
+        if _event['EventTime'] != None:
+            date_time = _event['EventDate'] + _event['EventTime']
+            time_stamp = datetime.strptime(date_time, '%B %d, %Y%I:%M %p')
+        else:
+            time_stamp = datetime.strptime(_event['EventDate'], '%B %d, %Y')
+
+        return {'message': message, 'location': location, 'time_stamp': time_stamp}
+
     # Get json from USPS API and start parsing.
     usps_data = getSingleUspsJson(_tracking_number)
     usps_data = usps_data['TrackResponse']['TrackInfo']
     # 'if' block handles bad tracking numbers.
     if 'Error' in usps_data:
-        return [{ 'message': usps_data['Error']['Description'], 'location': '', 'time_stamp': '' }]
-    usps_data = usps_data['TrackDetail']
+        return [{'message': usps_data['Error']['Description'], 'location': '', 'time_stamp': ''}]
 
-    # Loop through 'TrackDetail' from USPS json and build 'history_'.
     history_ = []
-    for detail in usps_data:
-        message, location, time_stamp = '', '', ''
 
-        # Get value of 'history_['message']'.
-        message = detail['Event']
-
-        # Get value of 'history_['location']'.
-        loc_keys = ['EventCity', 'EventState', 'EventCountry', 'EventZIPCode']
-        location = ' '.join([ detail[key] for key in loc_keys if detail[key] != None ])
-
-        # Get value of 'history_['time_stamp'].  if/else handles possible missing 'EventTime'.
-        if detail['EventTime'] != None:
-            date_time = detail['EventDate'] + detail['EventTime']
-            time_stamp = datetime.strptime(date_time, '%B %d, %Y%I:%M %p')
-        else:
-            time_stamp = datetime.strptime(detail['EventDate'], '%B %d, %Y')
-
-        history_ += [{ 'message': message, 'location': location, 'time_stamp': time_stamp }]
+    # Build 'history_' with most recent event from 'TrackSummary'.
+    history_ += [parseEventDict(usps_data['TrackSummary'])]
+    # Build 'history_' by iterating over events from 'TrackDetail'.
+    for details in usps_data['TrackDetail']:  history_ += [parseEventDict(details)]
 
     return history_
 
