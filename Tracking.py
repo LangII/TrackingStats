@@ -6,6 +6,8 @@ Tracking.py (module)
 - 2020-01-06 by David Lang
     - updated methods:
         - getSingleUpsJson(), getSingleUpsVitals(), getSingleUpsHistory() = Updated error handling.
+        - getSingleUspsHistory() =  Was missing most recent event from 'TrackSummary'.  And now more
+                                    efficient with use of subroutine.
 
 - 2019-12-26 by David Lang
     - updated methods:
@@ -42,7 +44,7 @@ Tracking.py (module)
 
 
 
-# # KEEP FOR EXPORTING
+""" KEEP FOR EXPORTING """
 # import sys
 # sys.path.insert(0, '/tomcat/python')
 
@@ -52,10 +54,10 @@ try:  _create_unverified_https_context = ssl._create_unverified_context
 except AttributeError:  pass
 else:  ssl._create_default_https_context = _create_unverified_https_context
 
-import time
 import json
 import xmltodict
 import requests
+import time
 import TrackingCredentials as cred
 from datetime import datetime
 from urllib.request import Request, urlopen
@@ -83,7 +85,7 @@ USPS_REQUEST_DELAY = 0.10
 
 USPS_DELIVERED_MESSAGES = ['Delivered', 'Available for Pickup']
 
-""" obsolete (2019-12-26) """
+""" obsolete 2019-12-26 """
 # # getSingleUspsVitals()
 # USPS_DELIVERED_MESSAGES = [
 #     'Your item was delivered',                  'Your item has been delivered',
@@ -105,6 +107,9 @@ FEDEX_DELIVERED_MESSAGES = ['Delivered']
 DHL_USERNAME = cred.DHL_USERNAME
 DHL_PASSWORD = cred.DHL_PASSWORD
 DHL_CLIENT_ID = cred.DHL_CLIENT_ID
+
+# getSingleDhlVitals()
+DHL_DELIVERED_MESSAGES = ['DELIVERED']
 
 
 
@@ -200,7 +205,6 @@ def getSingleUpsVitals(_tracking_number):
                                     created.
     """
 
-    # vitals_ = { 'delivered': False, 'message': '', 'time_stamp': '' }
     delivered, message, time_stamp = False, '', ''
 
     # Get the json pack from UPS API and start parsing.
@@ -230,7 +234,7 @@ def getSingleUpsVitals(_tracking_number):
     location = ups_data['Activity']['ActivityLocation']['Address']
     loc_keys = ['City', 'StateProvinceCode', 'CountryCode', 'PostalCode']
     location = ' '.join([ location[key] for key in loc_keys if key in location ])
-    message = message + ' at ' + location
+    message += ' - ' + location
 
     # Build 'date' as datetime object from ['Date'].
     time_stamp = ups_data['Activity']['Date']
@@ -359,7 +363,7 @@ def getSingleUspsHistory(_tracking_number):
     """
 
     def parseEventDict(_event):
-        """ Subroutine: Parse and return selected data from json event dict. """
+        """ subroutine: Parse and return selected data from json event dict. """
         message, location, time_stamp = '', '', ''
 
         # Get 'message'.
@@ -394,7 +398,7 @@ def getSingleUspsHistory(_tracking_number):
 
 
 
-""" obsolete (2019-12-26) """
+""" obsolete 2019-12-26 """
 # def getSingleUspsJson(_tracking_number):
 #     """
 #     input:  constants = USPS_USER_ID, USPS_REQUEST_DELAY
@@ -432,7 +436,7 @@ def getSingleUspsHistory(_tracking_number):
 
 
 
-""" obsolete (2019-12-26) """
+""" obsolete 2019-12-26 """
 # def extractUspsTimeStamp(_message):
 #     """
 #     input:  _message = String from USPS API describing most recent shipment activity.
@@ -479,7 +483,7 @@ def getSingleUspsHistory(_tracking_number):
 
 
 
-""" obsolete (2019-12-26) """
+""" obsolete 2019-12-26 """
 # def getSingleUspsVitals(_tracking_number):
 #     """
 #     input:  constants = DELIVERED_MESSAGES
@@ -658,34 +662,26 @@ def getSingleFedExVitals(_tracking_number):
 def getSingleDhlJson(_tracking_number):
     """
     input:  _tracking_number = DHL tracking number to be sent to DHL API to recover tracking data.
-    output: ups_data_ = A json in dict format, of the UPS response to '_tracking_number'.
+    output: Return json 'dhl_data_', of response from DHL API for input '_tracking_number'.
     """
 
     def getDhlKey():
-        """
-        output: key_ = ...
-        """
-
+        """ subroutine:  """
         # Build variables for get request.
         headers = {'Content-Type': 'application/json'}
         parameters = {'username': DHL_USERNAME, 'password': DHL_PASSWORD}
         url = 'https://api.dhlglobalmail.com/v1/auth/access_token/'
-
-        # Perform request and filter to return 'key'.
+        # Perform request and filter to return 'key_'.
         key_ = requests.get(url, headers=headers, params=parameters, timeout=5).json()
         key_ = key_['data']['access_token']
 
         return key_
 
     # Build output parameters for retrieving dhl data.
-    parameters = {
-        'access_token': getDhlKey(), 'client_id': DHL_CLIENT_ID, 'number': _tracking_number
-    }
+    params = {'access_token': getDhlKey(), 'client_id': DHL_CLIENT_ID, 'number': _tracking_number}
     url = 'https://api.dhlglobalmail.com/v2/mailitems/track'
-
-    # Request data from dhl website.
-    response = requests.get(url, params=parameters, timeout=5)
-    dhl_data_ = response.json()
+    # Request data from dhl website, then convert to json.
+    dhl_data_ = requests.get(url, params=params, timeout=5).json()
 
     return dhl_data_
 
@@ -693,18 +689,41 @@ def getSingleDhlJson(_tracking_number):
 
 def getSingleDhlVitals(_tracking_number):
     """
-    input:  _tracking_number = DHL tracking number to be sent to DHL API to recover tracking data.
-    output: delivered_ = Bool, True if package has been delivered, else False.
-            message_ = String, of most recently updated tracking message.
-            date_ = Datetime object, of date and time 'message_' was created.
-            location_ = String, of location where 'message_' was created.
+    input:  constants = DHL_DELIVERED_MESSAGES
+            _tracking_number = DHL tracking number to be sent to DHL API to recover tracking data.
+    output: vitals_['delivered'] =  Bool, True if package has been delivered, else False.
+            vitals_['message'] =    String, of most recently updated tracking message.
+            vitals_['time_stamp'] = Datetime object, of time stamp when 'details_['message']' was
+                                    created.
     """
+    delivered, message, time_stamp = False, '', ''
 
-    delivered_, message_, date_, location_ = False, '', datetime(1, 1, 1), ''
+    # Get json, check for errors, then start parsing.
+    dhl_data = getSingleDhlJson(_tracking_number)
+    # if conditioning used for error handling of bad tracking numbers.
+    if 'error' in dhl_data['meta']:
+        message = dhl_data['meta']['error'][0]['error_message']
+        vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
+        return vitals_
+    dhl_data = dhl_data['data']['mailItems'][0]['events'][0]
 
-    ###
+    # Get 'delivered'.
+    for del_mes in DHL_DELIVERED_MESSAGES:
+        if del_mes in dhl_data['description']:
+            delivered = True
+            break
 
-    return (delivered_, message_, date_, location_)
+    # Get 'message'.
+    message = dhl_data['description']
+    location = dhl_data['location'].replace(',', '') + ' ' + str(dhl_data['postalCode'])
+    message += ' - ' + location
+
+    # Get 'time_stamp'.
+    time_stamp = dhl_data['date'] + dhl_data['time']
+    time_stamp = datetime.strptime(time_stamp[:-3], '%Y-%m-%d%H:%M')
+
+    vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
+    return vitals_
 
 
 
