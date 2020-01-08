@@ -3,6 +3,13 @@
 
 Tracking.py (module)
 
+- 2020-02-08 by David Lang
+    - updated method:
+        - getSingleDhlJson() = Minor adjustments.
+    - created methods:
+        - getSingleDhlVitals(), getSingleDhlHistory() = Formatted return to conform to standard
+                                                        format.
+
 - 2020-01-06 by David Lang
     - updated methods:
         - getSingleUpsJson(), getSingleUpsVitals(), getSingleUpsHistory() = Updated error handling.
@@ -94,6 +101,14 @@ USPS_DELIVERED_MESSAGES = ['Delivered', 'Available for Pickup']
 #     'The return on your item was processed',    'Your item was returned'
 # ]
 
+# getSingleDhlJson()
+DHL_USERNAME = cred.DHL_USERNAME
+DHL_PASSWORD = cred.DHL_PASSWORD
+DHL_CLIENT_ID = cred.DHL_CLIENT_ID
+
+# getSingleDhlVitals()
+DHL_DELIVERED_MESSAGES = ['DELIVERED']
+
 # getSingleFedexJson()
 FEDEX_KEY = cred.FEDEX_KEY
 FEDEX_PASSWORD = cred.FEDEX_PASSWORD
@@ -102,14 +117,6 @@ FEDEX_METER_NUMBER = cred.FEDEX_METER_NUMBER
 
 # getSingleFedExVitals()
 FEDEX_DELIVERED_MESSAGES = ['Delivered']
-
-# getSingleDhlJson()
-DHL_USERNAME = cred.DHL_USERNAME
-DHL_PASSWORD = cred.DHL_PASSWORD
-DHL_CLIENT_ID = cred.DHL_CLIENT_ID
-
-# getSingleDhlVitals()
-DHL_DELIVERED_MESSAGES = ['DELIVERED']
 
 
 
@@ -398,133 +405,128 @@ def getSingleUspsHistory(_tracking_number):
 
 
 
-""" obsolete 2019-12-26 """
-# def getSingleUspsJson(_tracking_number):
-#     """
-#     input:  constants = USPS_USER_ID, USPS_REQUEST_DELAY
-#             _tracking_number = SUPS tracking number to be sent to USPS API to recover tracking data.
-#     output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
-#     """
-#
-#     url = 'http://production.shippingapis.com/ShippingAPI.dll'
-#     xml = """
-#         <? xml version="1.0" encoding="UTF-8" ?>
-#         <TrackRequest USERID="{}">
-#             <TrackID ID="{}"></TrackID>
-#         </TrackRequest>
-#     """.format(USPS_USER_ID, _tracking_number)
-#     parameters = {'API': 'TrackV2', 'XML': xml}
-#
-#     # Attempt to connect with USPS API.  With a 3 second timeout window, if 5 attempts are made
-#     # resulting in timeouts or connection errors then the program exits.
-#     attempts = 0
-#     time.sleep(USPS_REQUEST_DELAY)
-#     try:
-#         response = requests.get(url, params=parameters, timeout=3).text
-#     # except (requests.exceptions.ConnectTimeout, ConnectionError, requests.exceptions.ReadTimeout):
-#     except:
-#         attempts += 1
-#         if attempts == 5:
-#             exit(">>> too many timeouts, something's wrong, exiting program...")
-#         print("\n>>> connection error, trying again...\n")
-#         time.sleep(3)
-#         response = requests.get(url, params=parameters, timeout=3).text
-#     # Convert 'xml' to 'json'.
-#     usps_data_ = json.loads(json.dumps(xmltodict.parse(response)))
-#
-#     return usps_data_
+####################################################################################################
+                                                                           ###   METHODS / DHL   ###
+                                                                           #########################
 
 
 
-""" obsolete 2019-12-26 """
-# def extractUspsTimeStamp(_message):
-#     """
-#     input:  _message = String from USPS API describing most recent shipment activity.
-#     output: Return datetime object derived from a variety of slice formats from the input
-#             '_message'.  The USPS API outputs many various formats for their shipment activity
-#             messages.  This function sorts through '_message' to find the correct values for the
-#             datetime object.
-#     """
-#     # The primary time stamp indicator from '_message' is the ':' from hours/minutes.  So, we first
-#     # find the index of ':' as a starting point.  If no ':', return empty string.
-#     colon = _message.find(':')
-#     if colon == -1:  return ''
-#     # Get number of digit places for hours.
-#     if _message[colon - 2] == '1':  hour_digits = 2
-#     else:                           hour_digits = 1
-#
-#     # if/else sorts between '_message' formats of time-before-date and date-before-time.
-#     if _message[colon:].find('on') == 7:
-#         # If time-before-date, then we quickly get 'time_string' with 'begin' value starting
-#         # immediately before hours, and 'end' value is found 6 digits beyond ','.
-#         begin = colon - hour_digits
-#         end = colon + _message[colon:].find(',') + 6
-#         time_string = _message[begin:end]
-#
-#         return datetime.strptime(time_string, '%I:%M %p on %B %d, %Y')
-#
-#     else:
-#         # There are 2 possible variations to the date-before-time format.  One is preceded with 'of'
-#         # and parsed with ',', the other is preceded with 'on' and parsed with 'at'.  These if/else
-#         # conditions determine which this '_message' is, using 'cut_point' as reference.  Then
-#         # assigns values to 'cut_more' and 'look_for' for use in slicing out 'time_string'
-#         # from '_message'.
-#         cut_point = colon - hour_digits - 2
-#         if _message[cut_point] == ',':  cut_more, look_for = 0, 'of'
-#         else:                           cut_more, look_for = 2, 'on'
-#         time_string = _message[:cut_point - cut_more] + _message[cut_point + 1:]
-#         # Have to reset value of 'colon' due to previous slicing.
-#         colon = time_string.find(':')
-#         begin = time_string[:colon].rfind(look_for) + 3
-#         end = colon + 6
-#         time_string = time_string[begin:end]
-#
-#         return datetime.strptime(time_string, '%B %d, %Y %I:%M %p')
+def getSingleDhlJson(_tracking_number):
+    """
+    input:  _tracking_number = DHL tracking number to be sent to DHL API to recover tracking data.
+    output: Return json 'dhl_data_', of response from DHL API for input '_tracking_number'.
+    """
+
+    def getDhlKey():
+        """ subroutine:  """
+        # Build variables for get request.
+        headers = {'Content-Type': 'application/json'}
+        parameters = {'username': DHL_USERNAME, 'password': DHL_PASSWORD}
+        url = 'https://api.dhlglobalmail.com/v1/auth/access_token/'
+        # Perform request and filter to return 'key_'.
+        key_ = requests.get(url, headers=headers, params=parameters, timeout=5).json()
+        key_ = key_['data']['access_token']
+
+        return key_
+
+    # Build output parameters for retrieving dhl data.
+    params = {'access_token': getDhlKey(), 'client_id': DHL_CLIENT_ID, 'number': _tracking_number}
+    url = 'https://api.dhlglobalmail.com/v2/mailitems/track'
+    # Request data from dhl website, then convert to json.
+    dhl_data_ = requests.get(url, params=params, timeout=5).json()
+
+    return dhl_data_
 
 
 
-""" obsolete 2019-12-26 """
-# def getSingleUspsVitals(_tracking_number):
-#     """
-#     input:  constants = DELIVERED_MESSAGES
-#             _tracking_number = USPS tracking number to be sent to USPS API to recover tracking data.
-#     output: details_['delivered'] =     Bool, True if package has been delivered, else False.
-#             details_['message'] =       String, of most recently updated tracking message.
-#             details_['time_stamp'] =    Datetime object, of time stamp when 'details_['message']'
-#                                         was created.
-#     """
-#
-#     # Get the json pack from USPS API and parse 'message' with try/except for common errors.
-#     usps_data = getSingleUspsJson(_tracking_number)
-#     try:
-#         message = usps_data['TrackResponse']['TrackInfo']['TrackSummary']
-#     except KeyError:
-#         print(">>> bad response, ignoring shipment...\n")
-#         return "bad response"
-#
-#     # try/except uses 'removeNonAscii()' to clean string 'message'.
-#     try:
-#         print(">>> looking for non-ascii...", message)
-#     except UnicodeEncodeError:
-#         message = removeNonAscii(message)
-#         print(">>> non-ascii found...", message)
-#     # Extract bool 'delivered' from 'message' using 'DELIVERED_MESSAGES'.
-#     delivered = False
-#     for dm in USPS_DELIVERED_MESSAGES:
-#         if message.startswith(dm):
-#             delivered = True
-#             break
-#     # Extract 'time_stamp' from 'message'.
-#     time_stamp = extractUspsTimeStamp(message)
-#     vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
-#
-#     return vitals_
+def getSingleDhlVitals(_tracking_number):
+    """
+    input:  constants = DHL_DELIVERED_MESSAGES
+            _tracking_number = DHL tracking number to be sent to DHL API to recover tracking data.
+    output: vitals_['delivered'] =  Bool, True if package has been delivered, else False.
+            vitals_['message'] =    String, of most recently updated tracking message.
+            vitals_['time_stamp'] = Datetime object, of time stamp when 'details_['message']' was
+                                    created.
+    """
+    delivered, message, time_stamp = False, '', ''
+
+    # Get json, check for errors, then start parsing.
+    dhl_data = getSingleDhlJson(_tracking_number)
+    # if conditioning used for error handling of bad tracking numbers.
+    if 'error' in dhl_data['meta']:
+        message = dhl_data['meta']['error'][0]['error_message']
+        vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
+        return vitals_
+    dhl_data = dhl_data['data']['mailItems'][0]['events'][0]
+
+    # Get 'delivered'.
+    for del_mes in DHL_DELIVERED_MESSAGES:
+        if del_mes in dhl_data['description']:
+            delivered = True
+            break
+
+    # Get 'message'.
+    message = dhl_data['description']
+    location = dhl_data['location'].replace(',', '') + ' ' + str(dhl_data['postalCode'])
+    message += ' - ' + location
+
+    # Get 'time_stamp'.
+    time_stamp = dhl_data['date'] + dhl_data['time']
+    time_stamp = datetime.strptime(time_stamp[:-3], '%Y-%m-%d%H:%M')
+
+    vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
+    return vitals_
+
+
+
+def getSingleDhlHistory(_tracking_number):
+    """
+    input:  _tracking_number = DHL tracking number to be sent to DHL API to recover tracking data.
+    output: Return list-of-dicts 'history_'.  Each entity of list is a tracking event in the
+            packages history.  Each entity's dictionary is comprised of:
+                'message' = String of message of event.
+                'location' = String of location of event.
+                'time_stamp' = Datetime object of time stamp of event.
+    """
+
+    # Get the json pack from DHL API and start parsing.
+    dhl_data = getSingleDhlJson(_tracking_number)
+    # if condition used for error handling of bad tracking numbers.
+    if 'error' in dhl_data['meta']:
+        message = dhl_data['meta']['error'][0]['error_message']
+        history_ = [{'message': message, 'location': '', 'time_stamp': ''}]
+        return history_
+    dhl_data = dhl_data['data']['mailItems'][0]['events']
+
+    history_ = []
+    for event in dhl_data:
+        message, location, time_stamp = '', '', ''
+
+        # Get 'message'.
+        message = event['description']
+        # Get 'location'.
+        location = event['location'].replace(',', '') + ' ' + str(event['postalCode'])
+        if location == ' ':  location = ''
+        # Get 'time_stamp'.
+        time_stamp = event['date'] + event['time']
+        time_stamp = datetime.strptime(time_stamp[:-3], '%Y-%m-%d%H:%M')
+
+        # Iterate build of 'history_'.
+        history_ += [{ 'message': message, 'location': location, 'time_stamp': time_stamp }]
+
+    return history_
 
 
 
 ####################################################################################################
                                                                          ###   METHODS / FEDEX   ###
                                                                          ###########################
+
+
+
+#########################################################
+""" <> CAUTION <> UNDER CONSTRUCTION <> KEEP CLEAR <> """
+### \/ ####### \/ ################## \/ ########## \/ ###
 
 
 
@@ -647,86 +649,130 @@ def getSingleFedExVitals(_tracking_number):
 
 
 
-####################################################################################################
-                                                                           ###   METHODS / DHL   ###
-                                                                           #########################
+### /\ ####### /\ ################## /\ ########## /\ ###
+""" <> CAUTION <> UNDER CONSTRUCTION <> KEEP CLEAR <> """
+#########################################################
 
 
 
-################################################
-"""   <><><>   UNDER CONSTRUCTION   <><><>   """
-################################################
+""" obsolete 2019-12-26 """
+# def getSingleUspsJson(_tracking_number):
+#     """
+#     input:  constants = USPS_USER_ID, USPS_REQUEST_DELAY
+#             _tracking_number = SUPS tracking number to be sent to USPS API to recover tracking data.
+#     output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
+#     """
+#
+#     url = 'http://production.shippingapis.com/ShippingAPI.dll'
+#     xml = """
+#         <? xml version="1.0" encoding="UTF-8" ?>
+#         <TrackRequest USERID="{}">
+#             <TrackID ID="{}"></TrackID>
+#         </TrackRequest>
+#     """.format(USPS_USER_ID, _tracking_number)
+#     parameters = {'API': 'TrackV2', 'XML': xml}
+#
+#     # Attempt to connect with USPS API.  With a 3 second timeout window, if 5 attempts are made
+#     # resulting in timeouts or connection errors then the program exits.
+#     attempts = 0
+#     time.sleep(USPS_REQUEST_DELAY)
+#     try:
+#         response = requests.get(url, params=parameters, timeout=3).text
+#     # except (requests.exceptions.ConnectTimeout, ConnectionError, requests.exceptions.ReadTimeout):
+#     except:
+#         attempts += 1
+#         if attempts == 5:
+#             exit(">>> too many timeouts, something's wrong, exiting program...")
+#         print("\n>>> connection error, trying again...\n")
+#         time.sleep(3)
+#         response = requests.get(url, params=parameters, timeout=3).text
+#     # Convert 'xml' to 'json'.
+#     usps_data_ = json.loads(json.dumps(xmltodict.parse(response)))
+#
+#     return usps_data_
 
 
 
-def getSingleDhlJson(_tracking_number):
-    """
-    input:  _tracking_number = DHL tracking number to be sent to DHL API to recover tracking data.
-    output: Return json 'dhl_data_', of response from DHL API for input '_tracking_number'.
-    """
-
-    def getDhlKey():
-        """ subroutine:  """
-        # Build variables for get request.
-        headers = {'Content-Type': 'application/json'}
-        parameters = {'username': DHL_USERNAME, 'password': DHL_PASSWORD}
-        url = 'https://api.dhlglobalmail.com/v1/auth/access_token/'
-        # Perform request and filter to return 'key_'.
-        key_ = requests.get(url, headers=headers, params=parameters, timeout=5).json()
-        key_ = key_['data']['access_token']
-
-        return key_
-
-    # Build output parameters for retrieving dhl data.
-    params = {'access_token': getDhlKey(), 'client_id': DHL_CLIENT_ID, 'number': _tracking_number}
-    url = 'https://api.dhlglobalmail.com/v2/mailitems/track'
-    # Request data from dhl website, then convert to json.
-    dhl_data_ = requests.get(url, params=params, timeout=5).json()
-
-    return dhl_data_
-
-
-
-def getSingleDhlVitals(_tracking_number):
-    """
-    input:  constants = DHL_DELIVERED_MESSAGES
-            _tracking_number = DHL tracking number to be sent to DHL API to recover tracking data.
-    output: vitals_['delivered'] =  Bool, True if package has been delivered, else False.
-            vitals_['message'] =    String, of most recently updated tracking message.
-            vitals_['time_stamp'] = Datetime object, of time stamp when 'details_['message']' was
-                                    created.
-    """
-    delivered, message, time_stamp = False, '', ''
-
-    # Get json, check for errors, then start parsing.
-    dhl_data = getSingleDhlJson(_tracking_number)
-    # if conditioning used for error handling of bad tracking numbers.
-    if 'error' in dhl_data['meta']:
-        message = dhl_data['meta']['error'][0]['error_message']
-        vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
-        return vitals_
-    dhl_data = dhl_data['data']['mailItems'][0]['events'][0]
-
-    # Get 'delivered'.
-    for del_mes in DHL_DELIVERED_MESSAGES:
-        if del_mes in dhl_data['description']:
-            delivered = True
-            break
-
-    # Get 'message'.
-    message = dhl_data['description']
-    location = dhl_data['location'].replace(',', '') + ' ' + str(dhl_data['postalCode'])
-    message += ' - ' + location
-
-    # Get 'time_stamp'.
-    time_stamp = dhl_data['date'] + dhl_data['time']
-    time_stamp = datetime.strptime(time_stamp[:-3], '%Y-%m-%d%H:%M')
-
-    vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
-    return vitals_
+""" obsolete 2019-12-26 """
+# def extractUspsTimeStamp(_message):
+#     """
+#     input:  _message = String from USPS API describing most recent shipment activity.
+#     output: Return datetime object derived from a variety of slice formats from the input
+#             '_message'.  The USPS API outputs many various formats for their shipment activity
+#             messages.  This function sorts through '_message' to find the correct values for the
+#             datetime object.
+#     """
+#     # The primary time stamp indicator from '_message' is the ':' from hours/minutes.  So, we first
+#     # find the index of ':' as a starting point.  If no ':', return empty string.
+#     colon = _message.find(':')
+#     if colon == -1:  return ''
+#     # Get number of digit places for hours.
+#     if _message[colon - 2] == '1':  hour_digits = 2
+#     else:                           hour_digits = 1
+#
+#     # if/else sorts between '_message' formats of time-before-date and date-before-time.
+#     if _message[colon:].find('on') == 7:
+#         # If time-before-date, then we quickly get 'time_string' with 'begin' value starting
+#         # immediately before hours, and 'end' value is found 6 digits beyond ','.
+#         begin = colon - hour_digits
+#         end = colon + _message[colon:].find(',') + 6
+#         time_string = _message[begin:end]
+#
+#         return datetime.strptime(time_string, '%I:%M %p on %B %d, %Y')
+#
+#     else:
+#         # There are 2 possible variations to the date-before-time format.  One is preceded with 'of'
+#         # and parsed with ',', the other is preceded with 'on' and parsed with 'at'.  These if/else
+#         # conditions determine which this '_message' is, using 'cut_point' as reference.  Then
+#         # assigns values to 'cut_more' and 'look_for' for use in slicing out 'time_string'
+#         # from '_message'.
+#         cut_point = colon - hour_digits - 2
+#         if _message[cut_point] == ',':  cut_more, look_for = 0, 'of'
+#         else:                           cut_more, look_for = 2, 'on'
+#         time_string = _message[:cut_point - cut_more] + _message[cut_point + 1:]
+#         # Have to reset value of 'colon' due to previous slicing.
+#         colon = time_string.find(':')
+#         begin = time_string[:colon].rfind(look_for) + 3
+#         end = colon + 6
+#         time_string = time_string[begin:end]
+#
+#         return datetime.strptime(time_string, '%B %d, %Y %I:%M %p')
 
 
 
-################################################
-"""   <><><>   UNDER CONSTRUCTION   <><><>   """
-################################################
+""" obsolete 2019-12-26 """
+# def getSingleUspsVitals(_tracking_number):
+#     """
+#     input:  constants = DELIVERED_MESSAGES
+#             _tracking_number = USPS tracking number to be sent to USPS API to recover tracking data.
+#     output: details_['delivered'] =     Bool, True if package has been delivered, else False.
+#             details_['message'] =       String, of most recently updated tracking message.
+#             details_['time_stamp'] =    Datetime object, of time stamp when 'details_['message']'
+#                                         was created.
+#     """
+#
+#     # Get the json pack from USPS API and parse 'message' with try/except for common errors.
+#     usps_data = getSingleUspsJson(_tracking_number)
+#     try:
+#         message = usps_data['TrackResponse']['TrackInfo']['TrackSummary']
+#     except KeyError:
+#         print(">>> bad response, ignoring shipment...\n")
+#         return "bad response"
+#
+#     # try/except uses 'removeNonAscii()' to clean string 'message'.
+#     try:
+#         print(">>> looking for non-ascii...", message)
+#     except UnicodeEncodeError:
+#         message = removeNonAscii(message)
+#         print(">>> non-ascii found...", message)
+#     # Extract bool 'delivered' from 'message' using 'DELIVERED_MESSAGES'.
+#     delivered = False
+#     for dm in USPS_DELIVERED_MESSAGES:
+#         if message.startswith(dm):
+#             delivered = True
+#             break
+#     # Extract 'time_stamp' from 'message'.
+#     time_stamp = extractUspsTimeStamp(message)
+#     vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
+#
+#     return vitals_
