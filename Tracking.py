@@ -88,7 +88,8 @@ UPS_MAIL_INNOVATION_TAG = '<IncludeMailInnovationIndicator/>'
 
 # getSingleUspsJson()
 USPS_USER_ID = cred.USPS_USER_ID
-USPS_REQUEST_DELAY = 0.10
+USPS_REQUEST_ATTEMPTS = 5
+USPS_REQUEST_DELAY = 0.2
 
 USPS_DELIVERED_MESSAGES = ['Delivered', 'Available for Pickup']
 
@@ -304,13 +305,26 @@ def getSingleUpsHistory(_tracking_number):
 
 def getSingleUspsJson(_tracking_number):
     """
-    input:  constants = USPS_USER_ID
+    input:  constants = USPS_REQUEST_ATTEMPTS, USPS_USER_ID, USPS_REQUEST_DELAY
             _tracking_number = USPS tracking number to be sent to USPS API to recover tracking data.
     output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
     """
 
-    usps = USPSApi(USPS_USER_ID)
-    usps_data_ = usps.track(_tracking_number).result
+    success = False
+    for i in range(USPS_REQUEST_ATTEMPTS):
+        try:
+            usps = USPSApi(USPS_USER_ID)
+            usps_data_ = usps.track(_tracking_number).result
+            success = True
+            break
+        except requests.exceptions.RequestException:
+            print("\n>>> RequestException ... Trying again ...")
+            time.sleep(5)
+            continue
+
+    if not success:  return {'TrackResponse': {'TrackInfo': {'Error': 'RequestException'}}}
+
+    time.sleep(USPS_REQUEST_DELAY)
 
     return usps_data_
 
