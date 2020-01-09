@@ -47,20 +47,21 @@ cur = conn.cursor()
                                                                                #####################
 
 # 'getPackages()', 'updateTableArrival()'
-COMPANY_ID = 1232
+COMPANY_ID = 1899
 
 # 'getPackages()'
 # SHIPPED_SERVICE = 'USPS'
-SHIPPED_METHOD  = 'USPS Media Mail'
+SHIPPED_METHOD  = 'UPS MI BPM'
 DAYS_AGO        = 90
-START_DATE      = '2019-10-01'   # <-- Only used if 'DAYS_AGO = 0'.
-END_DATE        = '2019-11-10'   # <-- Only used if 'DAYS_AGO = 0'.
+START_DATE      = '2019-08-01'   # <-- Only used if 'DAYS_AGO = 0'.
+END_DATE        = '2019-11-01'   # <-- Only used if 'DAYS_AGO = 0'.
 
 # 'getCarrier()'
 CARRIERS = ['UPS', 'USPS', 'DHL', 'FedEx']
 
-# Toggle 'LastChecked < TODAY' conditional from 'getPackages() query'.
-RECHECKING_TODAY = False
+""" commented out 2020-01-09 (buggy) """
+# # Toggle 'LastChecked < TODAY' conditional from 'getPackages() query'.
+# RECHECKING_TODAY = True
 
 TODAY = begin.strftime('%Y-%m-%d')
 
@@ -94,7 +95,7 @@ def main():
         print(">>> PackageShipmentID =", package_shipment_id, "/ TrackingNumber =", tracking_number)
 
         if tracking_number == '':
-            print(">>>     - BAD TRACKING NUMBER ... moving on")
+            print(">>>     - BAD TRACKING NUMBER ... \\_(**)_/")
             continue
 
         if   carrier == 'UPS':      vitals = Tracking.getSingleUpsVitals(tracking_number)
@@ -172,12 +173,19 @@ def getPackages():
                 AND (a.Delivered != 'Y' OR a.Delivered IS NULL)
                 {}
     """
-    if not RECHECKING_TODAY:
-        query = query.format('AND a.LastChecked < %s')
-        insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE, TODAY]
-    else:
-        query = query.format('')
-        insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE]
+
+    """ commented out 2020-01-09 (buggy) """
+    # if not RECHECKING_TODAY:
+    #     query = query.format('AND a.LastChecked < %s')
+    #     insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE, TODAY]
+    # else:
+    #     query = query.format('')
+    #     insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE]
+
+    """ commented in 2020-01-09 (buggy) """
+    query = query.format('')
+    insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE]
+
     cur.execute(query, insert)
     select_ = [ [str(x), y] for x, y in cur.fetchall() ]
 
