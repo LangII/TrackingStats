@@ -310,19 +310,19 @@ def getSingleUspsJson(_tracking_number):
     output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
     """
 
-    success = False
+    usps_data_ = {}
     for i in range(USPS_REQUEST_ATTEMPTS):
         try:
             usps = USPSApi(USPS_USER_ID)
             usps_data_ = usps.track(_tracking_number).result
-            success = True
             break
         except requests.exceptions.RequestException:
-            print("\n>>> RequestException ... Trying again ...")
+            print("\n>>> RequestException ... Trying again ...\n")
             time.sleep(5)
             continue
 
-    if not success:  return {'TrackResponse': {'TrackInfo': {'Error': 'RequestException'}}}
+    # If too many request exceptions, give error message in working return json format.
+    if not usps_data_:  return {'TrackResponse': {'TrackInfo': {'Error': 'RequestException'}}}
 
     time.sleep(USPS_REQUEST_DELAY)
 
