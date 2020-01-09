@@ -130,7 +130,7 @@ def getCarrier():
             carrier_ = c
             break
 
-    if not carrier_:  exit("\n>>> ERROR:  unrecognized carrier in 'SHIPPED_METHOD'\n")
+    if not carrier_:  exit("\n>>> ERROR:  unrecognized carrier in 'SHIPPED_METHOD' ... \\_(**)_/\n")
 
     return carrier_
 

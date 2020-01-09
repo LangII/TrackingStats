@@ -322,7 +322,7 @@ def getSingleUspsJson(_tracking_number):
             continue
 
     # If too many request exceptions, give error message in working return json format.
-    if not usps_data_:  return {'TrackResponse': {'TrackInfo': {'Error': 'RequestException'}}}
+    if not usps_data_:  exit("\n>>> ERROR:  Too many request exceptions ... \\_(**)_/\n")
 
     time.sleep(USPS_REQUEST_DELAY)
 
