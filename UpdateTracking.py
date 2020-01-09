@@ -47,14 +47,17 @@ cur = conn.cursor()
                                                                                #####################
 
 # 'getPackages()', 'updateTableArrival()'
-COMPANY_ID = 507
+COMPANY_ID = 1232
 
 # 'getPackages()'
-SHIPPED_SERVICE = 'USPS'
+# SHIPPED_SERVICE = 'USPS'
 SHIPPED_METHOD  = 'USPS Media Mail'
-DAYS_AGO        = 60
+DAYS_AGO        = 90
 START_DATE      = '2019-10-01'   # <-- Only used if 'DAYS_AGO = 0'.
 END_DATE        = '2019-11-10'   # <-- Only used if 'DAYS_AGO = 0'.
+
+# 'getCarrier()'
+CARRIERS = ['UPS', 'USPS', 'DHL', 'FedEx']
 
 # Toggle 'LastChecked < TODAY' conditional from 'getPackages() query'.
 RECHECKING_TODAY = False
@@ -79,6 +82,8 @@ def main():
 
     # packages = getSinglePackageById(13544607)
 
+    carrier = getCarrier()
+
     packages = getPackages()
     packages = filterMultiTrackingNums(packages)
     print("\n>>> retrieved", len(packages), "packages")
@@ -92,11 +97,12 @@ def main():
             print(">>>     - BAD TRACKING NUMBER ... moving on")
             continue
 
-        if   SHIPPED_SERVICE == 'UPS':    vitals = Tracking.getSingleUpsVitals(tracking_number)
-        elif SHIPPED_SERVICE == 'USPS':   vitals = Tracking.getSingleUspsVitals(tracking_number)
-        elif SHIPPED_SERVICE == 'FedEx':  vitals = Tracking.getSingleFedExVitals(tracking_number)
+        if   carrier == 'UPS':      vitals = Tracking.getSingleUpsVitals(tracking_number)
+        elif carrier == 'USPS':     vitals = Tracking.getSingleUspsVitals(tracking_number)
+        elif carrier == 'DHL':      vitals = Tracking.getSingleDhlVitals(tracking_number)
+        elif carrier == 'FedEx':    vitals = Tracking.getSingleFedExVitals(tracking_number)
 
-        print(">>>     -", SHIPPED_SERVICE, "vitals retrieved")
+        print(">>>     -", carrier, "vitals retrieved")
 
         updateTableArrival(package_shipment_id, tracking_number, vitals)
         print(">>>     - tblArrival updated")
@@ -107,6 +113,28 @@ def main():
 ####################################################################################################
                                                                                ###   FUNCTIONS   ###
                                                                                #####################
+
+
+
+def getCarrier():
+    """
+    input:  constants = CARRIERS, SHIPPED_METHOD
+    output: Return string 'carrier_', a tag to determine which carrier's method to use based on
+            input of 'SHIPPED_METHOD'.
+    """
+    carrier_ = ''
+
+    for c in CARRIERS:
+        carrier_in_shipped_method = (SHIPPED_METHOD.lower()).startswith(c.lower())
+        if carrier_in_shipped_method:
+            carrier_ = c
+            break
+
+    if not carrier_:  exit("\n>>> ERROR:  unrecognized carrier in 'SHIPPED_METHOD'\n")
+
+    return carrier_
+
+
 
 def getSinglePackageById(_package_shipment_id):
     """
