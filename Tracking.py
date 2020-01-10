@@ -85,6 +85,8 @@ UPS_PASSWORD = cred.UPS_PASSWORD
 UPS_ONLINETOOLS_URL = 'https://onlinetools.ups.com/ups.app/xml/Track'
 UPS_REQUEST_HEADERS = {'Content-Type': 'application/x-www-form-urlencoded'}
 UPS_MAIL_INNOVATION_TAG = '<IncludeMailInnovationIndicator/>'
+UPS_REQUEST_ATTEMPTS = 5
+UPS_REQUEST_DELAY = 0.2
 
 # getSingleUspsJson()
 USPS_USER_ID = cred.USPS_USER_ID
@@ -106,6 +108,8 @@ USPS_DELIVERED_MESSAGES = ['Delivered', 'Available for Pickup']
 DHL_USERNAME = cred.DHL_USERNAME
 DHL_PASSWORD = cred.DHL_PASSWORD
 DHL_CLIENT_ID = cred.DHL_CLIENT_ID
+DHL_REQUEST_ATTEMPTS = 5
+DHL_REQUEST_DELAY = 0.2
 
 # getSingleDhlVitals()
 DHL_DELIVERED_MESSAGES = ['DELIVERED']
@@ -195,10 +199,23 @@ def getSingleUpsJson(_tracking_number, activity_type='last'):
         UPS_MAIL_INNOVATION_TAG, _tracking_number
     ).encode('utf-8')
 
-    ups_data_ = Request(url=UPS_ONLINETOOLS_URL, data=xml, headers=UPS_REQUEST_HEADERS)
-    ups_data_ = urlopen(ups_data_).read()
-    # Convert 'xml' to 'json'.
-    ups_data_ = json.loads(json.dumps(xmltodict.parse(ups_data_)))
+    ups_data_ = {}
+    for i in range(UPS_REQUEST_ATTEMPTS):
+        try:
+            ups_data_ = Request(url=UPS_ONLINETOOLS_URL, data=xml, headers=UPS_REQUEST_HEADERS)
+            ups_data_ = urlopen(ups_data_).read()
+            # Convert 'xml' to 'json'.
+            ups_data_ = json.loads(json.dumps(xmltodict.parse(ups_data_)))
+            break
+        except:
+            print("\n>>> Exception ... Trying again ...\n")
+            time.sleep(5)
+            continue
+
+    # If too many request exceptions, give error message in working return json format.
+    if not ups_data_:  exit("\n>>> ERROR:  Too many request exceptions ... \\_(**)_/\n")
+
+    time.sleep(UPS_REQUEST_DELAY)
 
     return ups_data_
 
@@ -219,9 +236,9 @@ def getSingleUpsVitals(_tracking_number):
     ups_data = getSingleUpsJson(_tracking_number)
     # 'if' block handles bad tracking numbers.
     if 'Error' in ups_data['TrackResponse']['Response']:
-        message = ups_data['TrackResponse']['Response']['Error']['ErrorDescription']
-        vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
-        return vitals_
+        error_message = ups_data['TrackResponse']['Response']['Error']['ErrorDescription']
+        print("\n>>> UPS error message: {}".format(error_message))
+        return 'error'
     ups_data = ups_data['TrackResponse']['Shipment']
     # Check for odd json response format; sometimes ['Shipment'] is a list-of-dicts, not dict.
     if isinstance(ups_data, dict):  ups_data = ups_data['Package']
@@ -234,7 +251,7 @@ def getSingleUpsVitals(_tracking_number):
     message = ups_data['Activity']['Status']['StatusType']['Description']
     # try/except uses 'removeNonAscii()' to clean string 'message'.
     try:
-        print(">>> looking for non-ascii...", message)
+        print(">>> looking for non-ascii ...", message)
     except UnicodeEncodeError:
         message = removeNonAscii(message)
         print(">>> non-ascii found...", message)
@@ -267,11 +284,8 @@ def getSingleUpsHistory(_tracking_number):
     ups_data = getSingleUpsJson(_tracking_number, 'all')
     # 'if' block handles bad tracking numbers.
     if 'Error' in ups_data['TrackResponse']['Response']:
-        return [{
-            'message': ups_data['TrackResponse']['Response']['Error']['ErrorDescription'],
-            'location': '',
-            'time_stamp': ''
-        }]
+        error_message = ups_data['TrackResponse']['Response']['Error']['ErrorDescription']
+        return [{'message': error_message, 'location': '', 'time_stamp': ''}]
     ups_data = ups_data['TrackResponse']['Shipment']['Package']['Activity']
 
     # Populate return object 'history_' with data from iterations of 'ups_data'.
@@ -316,8 +330,8 @@ def getSingleUspsJson(_tracking_number):
             usps = USPSApi(USPS_USER_ID)
             usps_data_ = usps.track(_tracking_number).result
             break
-        except requests.exceptions.RequestException:
-            print("\n>>> RequestException ... Trying again ...\n")
+        except:
+            print("\n>>> Exception ... Trying again ...\n")
             time.sleep(5)
             continue
 
@@ -347,8 +361,8 @@ def getSingleUspsVitals(_tracking_number):
     usps_data = usps_data['TrackResponse']['TrackInfo']
     # 'if' block handles bad tracking numbers.
     if 'Error' in usps_data:
-        vitals_['message'] = usps_data['Error']['Description']
-        return vitals_
+        print("\n>>> USPS error message: {}".format(usps_data['Error']['Description']))
+        return 'error'
     usps_data = usps_data['TrackSummary']
 
     # Get 'message'.
@@ -432,7 +446,8 @@ def getSingleDhlJson(_tracking_number):
     """
 
     def getDhlKey():
-        """ subroutine:  """
+        """ subroutine:  Get access key through DHL API prerequest. """
+
         # Build variables for get request.
         headers = {'Content-Type': 'application/json'}
         parameters = {'username': DHL_USERNAME, 'password': DHL_PASSWORD}
@@ -443,11 +458,25 @@ def getSingleDhlJson(_tracking_number):
 
         return key_
 
-    # Build output parameters for retrieving dhl data.
-    params = {'access_token': getDhlKey(), 'client_id': DHL_CLIENT_ID, 'number': _tracking_number}
-    url = 'https://api.dhlglobalmail.com/v2/mailitems/track'
-    # Request data from dhl website, then convert to json.
-    dhl_data_ = requests.get(url, params=params, timeout=5).json()
+    dhl_data_ = {}
+    for i in range(DHL_REQUEST_ATTEMPTS):
+        try:
+            # Build output parameters for retrieving dhl data.
+            parameters = {
+                'access_token': getDhlKey(), 'client_id': DHL_CLIENT_ID, 'number': _tracking_number
+            }
+            url = 'https://api.dhlglobalmail.com/v2/mailitems/track'
+            # Request data from dhl website, then convert to json.
+            dhl_data_ = requests.get(url, params=parameters, timeout=5).json()
+            break
+        except:
+            print("\n>>> Exception ... Trying again ...\n")
+            time.sleep(5)
+            continue
+
+    if not dhl_data_:  exit("\n>>> ERROR:  Too many request exceptions ... \\_(**)_/\n")
+
+    time.sleep(DHL_REQUEST_DELAY)
 
     return dhl_data_
 
@@ -468,9 +497,9 @@ def getSingleDhlVitals(_tracking_number):
     dhl_data = getSingleDhlJson(_tracking_number)
     # if conditioning used for error handling of bad tracking numbers.
     if 'error' in dhl_data['meta']:
-        message = dhl_data['meta']['error'][0]['error_message']
-        vitals_ = {'delivered': delivered, 'message': message, 'time_stamp': time_stamp}
-        return vitals_
+        error_message = dhl_data['meta']['error'][0]['error_message']
+        print("\n>>> DHL error message: {}".format(error_message))
+        return 'error'
     dhl_data = dhl_data['data']['mailItems'][0]['events'][0]
 
     # Get 'delivered'.
@@ -483,6 +512,12 @@ def getSingleDhlVitals(_tracking_number):
     message = dhl_data['description']
     location = dhl_data['location'].replace(',', '') + ' ' + str(dhl_data['postalCode'])
     message += ' - ' + location
+    # try/except uses 'removeNonAscii()' to clean string 'message'.
+    try:
+        print(">>> looking for non-ascii ...", message)
+    except UnicodeEncodeError:
+        message = removeNonAscii(message)
+        print(">>> non-ascii found...", message)
 
     # Get 'time_stamp'.
     time_stamp = dhl_data['date'] + dhl_data['time']
@@ -540,7 +575,7 @@ def getSingleDhlHistory(_tracking_number):
 
 #########################################################
 """ <> CAUTION <> UNDER CONSTRUCTION <> KEEP CLEAR <> """
-### \/ ####### \/ ################## \/ ########## \/ ###
+#########################################################
 
 
 
@@ -663,7 +698,7 @@ def getSingleFedExVitals(_tracking_number):
 
 
 
-### /\ ####### /\ ################## /\ ########## /\ ###
+#########################################################
 """ <> CAUTION <> UNDER CONSTRUCTION <> KEEP CLEAR <> """
 #########################################################
 
