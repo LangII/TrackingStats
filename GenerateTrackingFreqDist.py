@@ -1,4 +1,6 @@
 
+
+
 """
 
 GenerateTrackingFreqDist.py
@@ -13,6 +15,8 @@ GenerateTrackingFreqDist.py
 
 """
 
+
+
 ####################################################################################################
                                                                                  ###   IMPORTS   ###
                                                                                  ###################
@@ -26,6 +30,8 @@ from collections import OrderedDict, Counter
 from datetime import datetime, timedelta
 from Required import Connections
 
+
+
 ####################################################################################################
                                                                                  ###   GLOBALS   ###
                                                                                  ###################
@@ -35,15 +41,17 @@ begin = datetime.now()
 conn = Connections.connect()
 cur = conn.cursor()
 
+
+
 ####################################################################################################
                                                                                ###   CONSTANTS   ###
                                                                                #####################
 
-COMPANY_ID      = 735
+COMPANY_ID      = 1232
 SHIPPED_METHOD  = 'USPS Media Mail'
 DATE_RANGE_TYPE = 'week'  # <-- Has to be 'day', 'week', 'month', or 'custom'.
-START_DATE      = '2019-12-01'
-END_DATE        = '2019-12-08'
+START_DATE      = '2019-10-06'
+END_DATE        = '2019-10-13'
 MAX_FREQ        = 14
 
 TBL_PS_HEADERS = ['TrackingNumber', 'CompletionDate']
@@ -56,6 +64,8 @@ PREFIX_HEADERS = [
 DAYS_HEADERS      = [ 'Days' + str(i + 1) for i in range(MAX_FREQ - 1) ]
 SUFFIX_HEADERS    = ['DaysMaxFreqPlus']
 DTD_STATS_HEADERS = PREFIX_HEADERS + DAYS_HEADERS + SUFFIX_HEADERS
+
+
 
 ####################################################################################################
                                                                                     ###   MAIN   ###
@@ -72,22 +82,30 @@ def main():
     print(">>>    MaxFreq       =", MAX_FREQ)
 
     records = getRecords()
-    print("\n>>> retrieved", len(records), "records")
 
-    print("\n>>> converting records to dataframe")
-    df = convertRecordsToDf(records)
+    if records:
+        print("\n>>> retrieved", len(records), "records")
 
-    print("\n>>> calculating 'DaysToDeliver' per record")
-    df = addDaysToDeliver(df)
+        print("\n>>> converting records to dataframe")
+        df = convertRecordsToDf(records)
 
-    print("\n>>> calculating frequency distribution of 'DaysToDeliver'")
-    freq_dist = getDaysToDeliverFreqDist(df)
+        print("\n>>> calculating 'DaysToDeliver' per record")
+        df = addDaysToDeliver(df)
+
+        print("\n>>> calculating frequency distribution of 'DaysToDeliver'")
+        freq_dist = getDaysToDeliverFreqDist(df)
+
+    else:
+        print("\n>>> no records retrieved ... creating empty frequency distribution")
+        freq_dist = createEmptyFreqDist()
 
     print("\n>>> inserting into 'tblDaysToDeliverStats'")
     insertIntoTableDtdStats(freq_dist, len(records))
 
     end = datetime.now()
     exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n")
+
+
 
 ####################################################################################################
                                                                                ###   FUNCTIONS   ###
@@ -186,6 +204,12 @@ def getDaysToDeliverFreqDist(_df):
         if k != 'DaysMaxFreqPlus':  freq_dist_['Days' + str(k)] = freq_dist_.pop(k)
 
     return freq_dist_
+
+
+
+def createEmptyFreqDist():
+    """ output:  Return dict with keys of DAYS_HEADERS, SUFFIX_HEADERS and values of 0. """
+    return { **{ dh: 0 for dh in DAYS_HEADERS }, **{ sh: 0 for sh in SUFFIX_HEADERS } }
 
 
 
