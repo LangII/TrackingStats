@@ -1,4 +1,6 @@
 
+
+
 """
 
 DtdWeeklyPlotSingle.py
@@ -14,6 +16,8 @@ DtdWeeklyPlotSingle.py
 
 """
 
+
+
 ####################################################################################################
                                                                                  ###   IMPORTS   ###
                                                                                  ###################
@@ -25,6 +29,8 @@ import pandas
 import statistics
 import matplotlib.pyplot as plt
 
+
+
 ####################################################################################################
                                                                                  ###   GLOBALS   ###
                                                                                  ###################
@@ -33,20 +39,24 @@ begin = datetime.now()
 conn = Connections.connect()
 cur = conn.cursor()
 
+
+
 ####################################################################################################
                                                                                ###   CONSTANTS   ###
                                                                                #####################
 
-COMPANY_ID      = 735
+COMPANY_ID      = 1232
 SHIPPED_METHOD  = 'USPS Media Mail'
 DATE_RANGE_TYPE = 'week'
 GT_ET_DATE      = '2019-10-06'
-LT_ET_DATE      = '2019-12-01'
+LT_ET_DATE      = '2019-12-22'
 MAX_FREQ        = 14
 
 COLUMNS = ['CompanyID', 'StartDate', 'EndDate', 'TotalShipped', 'DaysMaxFreqPlus']
 DAYS_COLS = [ 'Days' + str(i + 1) for i in range(MAX_FREQ) ][:-1]
 COLUMNS = COLUMNS + DAYS_COLS
+
+
 
 ####################################################################################################
                                                                                     ###   MAIN   ###
@@ -65,6 +75,8 @@ def main():
 
     end = datetime.now()
     exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n")
+
+
 
 ####################################################################################################
                                                                                ###   FUNCTIONS   ###
@@ -117,21 +129,26 @@ def updateDfWithMeanAndStDev(_df):
     output: Return dataframe with additional calculated rows of 'Mean' and 'StDev'.
     """
 
-    # The "lazy" method if iterating through a dataframe is used because two different column
-    # updates are done using similar calculations.  This way 'one_dim_array' does not need to be
-    # generated twice per dataframe row when using dataframe.apply.
-
     new_columns = _df.columns.tolist() + ['Mean', 'StDev']
     df_ = pandas.DataFrame(columns=new_columns)
 
+    # The "lazy" method if iterating through a dataframe is used because two different column
+    # updates are done using similar calculations.  This way 'one_dim_array' does not need to be
+    # generated twice per dataframe row when using dataframe.apply.
     for _, row in _df.iterrows():
         row = dict(row.items())
 
+        # Build 'one_dim_array' needed for calculating 'Mean' and 'StDev'.  if/else conditions for
+        # handling rows with 0 packages shipped.
         one_dim_array = []
-        for i in range(MAX_FREQ - 1):
-            one_dim_array.append(row['Days' + str(i + 1)] * [i + 1])
-        one_dim_array = sum(one_dim_array, [])
+        if row['TotalShipped'] != 0:
+            for i in range(MAX_FREQ - 1):
+                one_dim_array.append(row['Days' + str(i + 1)] * [i + 1])
+            one_dim_array = sum(one_dim_array, [])
+        else:
+            one_dim_array = [0, 0]
 
+        # Calculate 'Mean' and 'StDev' and add to dataframe.
         row['Mean'] = round(statistics.mean(one_dim_array), 2)
         row['StDev'] = round(statistics.stdev(one_dim_array), 2)
         df_ = df_.append(row, ignore_index=True)
