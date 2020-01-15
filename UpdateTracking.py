@@ -1,13 +1,15 @@
 
+
+
 """
 
 UpdateTracking.py
 
 - 2019-12-02 by David Lang
-    - Added constant RECHECKING_TODAY and conditionals to query of getPackages().  Conditionals are
+    - Added constant RECHECKING_YESTERDAY and conditionals to query of getPackages().  Conditionals are
     to check if package data was already pulled that day.  This is so data is not repeatedly
     retrieved unnecessarily if script is repeatedly run due to time outs or errors.  Then
-    RECHECKING_TODAY makes this functionality toggleable for debugging.
+    RECHECKING_YESTERDAY makes this functionality toggleable for debugging.
 
 - 2019-11-20 by David Lang
     - Update database with tracking event Message, event MessageTimestamp, and event boolean
@@ -20,6 +22,8 @@ UpdateTracking.py
 
 """
 
+
+
 ####################################################################################################
                                                                                  ###   IMPORTS   ###
                                                                                  ###################
@@ -28,10 +32,12 @@ UpdateTracking.py
 # import sys
 # sys.path.insert(0, '/tomcat/python')
 
-import json
-import Tracking
+import UpdateTrackingSettings as settings
 from datetime import datetime, timedelta
-from Required import Connections
+from Required import Connections, Tracking, Mail
+import pandas
+
+
 
 ####################################################################################################
                                                                                  ###   GLOBALS   ###
@@ -42,32 +48,41 @@ begin = datetime.now()
 conn = Connections.connect()
 cur = conn.cursor()
 
+
+
 ####################################################################################################
                                                                                ###   CONSTANTS   ###
                                                                                #####################
 
 # 'getPackages()', 'updateTableArrival()'
-COMPANY_ID = 1899
+COMPANY_ID = 0
 
 # 'getPackages()'
-# SHIPPED_SERVICE = 'USPS'
-SHIPPED_METHOD  = 'UPS MI BPM'
-DAYS_AGO        = 90
-START_DATE      = '2019-08-01'   # <-- Only used if 'DAYS_AGO = 0'.
-END_DATE        = '2019-11-01'   # <-- Only used if 'DAYS_AGO = 0'.
+SHIPPED_METHOD  = ''
+DAYS_AGO        = 0
+START_DATE      = ''   # <-- Only used if 'DAYS_AGO = 0'.
+END_DATE        = ''   # <-- Only used if 'DAYS_AGO = 0'.
 
 # 'getCarrier()'
 CARRIERS = ['UPS', 'USPS', 'DHL', 'FedEx']
 
-""" commented out 2020-01-09 (buggy) """
-# # Toggle 'LastChecked < TODAY' conditional from 'getPackages() query'.
-# RECHECKING_TODAY = True
+""" commented in/out 2020-01-09 (buggy) """
+# Toggle 'LastChecked < YESTERDAY' conditional from 'getPackages() query'...  To recheck shipments (or
+# not to recheck shipments), that were already checked that day, and have yet to be delivered.
+RECHECKING_YESTERDAY = False
 
-TODAY = begin.strftime('%Y-%m-%d')
+YESTERDAY = (begin - timedelta(days=1)).strftime('%Y-%m-%d')
 
-if DAYS_AGO != 0:
-    START_DATE = (begin - timedelta(days=DAYS_AGO)).strftime('%Y-%m-%d')
-    END_DATE   = TODAY
+EMAIL_PACKAGE = {'totals': [], 'errors': []}
+
+DAYS_AGO = settings.days_ago
+SERIES = settings.series
+
+# DEBUG ... For single series manual input.
+# DAYS_AGO = 30
+# SERIES = [{'company_id': 507,  'shipped_method': 'USPS Media Mail'}]
+
+
 
 ####################################################################################################
                                                                                     ###   MAIN   ###
@@ -75,7 +90,30 @@ if DAYS_AGO != 0:
 
 def main():
 
-    print("\n\n>>> retrieving packages for:")
+    global COMPANY_ID, SHIPPED_METHOD, DAYS_AGO, EMAIL_PACKAGE
+
+    for i, set in enumerate(SERIES):
+        COMPANY_ID, SHIPPED_METHOD = set['company_id'], set['shipped_method']
+
+        mainLoop(i + 1, len(SERIES))
+
+        print("\n>>> COMPLETED updating tracking ... {}, {}".format(COMPANY_ID, SHIPPED_METHOD))
+
+    print("\n>>> sending recap email ...")
+    sendRecapEmail(EMAIL_PACKAGE)
+
+    end = datetime.now()
+    exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n\n")
+
+
+
+def mainLoop(_set, _series):
+
+    global EMAIL_PACKAGE
+
+    updateStartAndEndDates()
+
+    print("\n>>> retrieving packages for:")
     print(">>>    CompanyID     =", COMPANY_ID)
     print(">>>    ShippedMethod =", SHIPPED_METHOD)
     print(">>>    StartDate     =", START_DATE)
@@ -89,31 +127,43 @@ def main():
     packages = filterMultiTrackingNums(packages)
     print("\n>>> retrieved", len(packages), "packages")
 
+    set_print = "\n>>> set = {} of {} ... {}, {}".format(_set, _series, COMPANY_ID, SHIPPED_METHOD)
+
     for i, (package_shipment_id, tracking_number) in enumerate(packages):
 
-        print("\n>>>", i + 1, "of", len(packages))
+        print(set_print)
+        print(">>> package =", i + 1, "of", len(packages))
         print(">>> PackageShipmentID =", package_shipment_id, "/ TrackingNumber =", tracking_number)
-
-        if tracking_number == '':
-            print(">>>     - BAD TRACKING NUMBER ... \\_(**)_/")
-            continue
 
         if   carrier == 'UPS':      vitals = Tracking.getSingleUpsVitals(tracking_number)
         elif carrier == 'USPS':     vitals = Tracking.getSingleUspsVitals(tracking_number)
         elif carrier == 'DHL':      vitals = Tracking.getSingleDhlVitals(tracking_number)
         elif carrier == 'FedEx':    vitals = Tracking.getSingleFedExVitals(tracking_number)
-
-        print(">>>     -", carrier, "vitals retrieved")
+        if vitals == 'error':
+            print(">>>     - BAD RESPONSE ... not updating ... moving on ... \\_(**)_/")
+            EMAIL_PACKAGE['errors'] += [[
+                COMPANY_ID, SHIPPED_METHOD, package_shipment_id, tracking_number
+            ]]
+            continue
+        print(">>>     - vitals retrieved")
 
         updateTableArrival(package_shipment_id, tracking_number, vitals)
         print(">>>     - tblArrival updated")
 
-    end = datetime.now()
-    exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n\n")
+    EMAIL_PACKAGE['totals'] += [[str(COMPANY_ID), SHIPPED_METHOD, str(len(packages))]]
+
+
 
 ####################################################################################################
                                                                                ###   FUNCTIONS   ###
                                                                                #####################
+
+def updateStartAndEndDates():
+    """ Update values of START_DATE and END_DATE based on value of DAYS_AGO. """
+    global START_DATE, END_DATE
+    if DAYS_AGO != 0:
+        START_DATE  = (begin - timedelta(days=DAYS_AGO)).strftime('%Y-%m-%d')
+        END_DATE    = YESTERDAY
 
 
 
@@ -174,17 +224,17 @@ def getPackages():
                 {}
     """
 
-    """ commented out 2020-01-09 (buggy) """
-    # if not RECHECKING_TODAY:
-    #     query = query.format('AND a.LastChecked < %s')
-    #     insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE, TODAY]
-    # else:
-    #     query = query.format('')
-    #     insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE]
+    """ commented in/out 2020-01-09 (buggy) """
+    if not RECHECKING_YESTERDAY:
+        query = query.format('AND (a.LastChecked < %s OR a.LastChecked IS NULL)')
+        insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE, YESTERDAY]
+    else:
+        query = query.format('')
+        insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE]
 
-    """ commented in 2020-01-09 (buggy) """
-    query = query.format('')
-    insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE]
+    """ commented in/out 2020-01-09 (buggy) """
+    # query = query.format('')
+    # insert = [COMPANY_ID, SHIPPED_METHOD, START_DATE, END_DATE]
 
     cur.execute(query, insert)
     select_ = [ [str(x), y] for x, y in cur.fetchall() ]
@@ -200,7 +250,7 @@ def filterMultiTrackingNums(_packages):
     """
 
     def splitTrackingNums(_pack):
-        # Subroutine...  Separate of packages with multiple tracking numbers.
+        """ Subroutine...  Separate of packages with multiple tracking numbers. """
         multi = [ i.strip() for i in _pack[1].split(';') ]
         splits_ = [ [_pack[0], m] for m in multi ]
         return splits_
@@ -245,6 +295,58 @@ def updateTableArrival(_package_shipment_id, _tracking_number, _vitals):
     ]
     cur.execute(query, insert)
     conn.commit()
+
+
+
+def sendRecapEmail(_email_package):
+
+    EMAIL_CSV_NAME = 'errors_email.csv'
+
+    email_to = ['dlang@disk.com']
+    email_from = 'dlang@disk.com'
+    email_message = ''
+    email_subject = 'UpdateTracking.py recap'
+    file_loc = EMAIL_CSV_NAME
+    file_name = 'errors.csv'
+
+    email_df_cols = ['comp id', 'ship meth', 'package id', 'track num']
+
+    email_message += '\ncomp_id ... ship_meth ... qty\n'
+    for total in _email_package['totals']:  email_message += '\n' + ' ... '.join(total)
+
+    # mes_recap_headers = ['comp id', 'ship meth', 'total']
+    # padding = [0, 0, 0]
+    #
+    #
+    # for total in [mes_recap_headers] + _email_package['totals']:
+    #     for i, t in enumerate(total):
+    #         if len(str(t)) > padding[i]:  padding[i] = len(str(t))
+    #
+    # mes_lines = '\n+-{}-+-{}-+-{}-+'.format(*[ '-' * p for p in padding ])
+    # mes_content = '\n| {} | {} | {} |'
+    #
+    # headers_wpad = []
+    # for i, h in enumerate(mes_recap_headers):  headers_wpad += [h.ljust(padding[i])]
+    #
+    # email_message += '\ntotals of packages tracked per company and shipped method\n'
+    # email_message += mes_lines
+    # email_message += mes_content.format(*headers_wpad)
+    # email_message += mes_lines
+    #
+    # for pack in _email_package['totals']:
+    #     pack_wpad = []
+    #     for i, p in enumerate(pack):  pack_wpad += [str(p).ljust(padding[i])]
+    #     email_message += mes_content.format(*pack_wpad)
+    #
+    # email_message += mes_lines
+
+    print(email_message)
+
+    email_df = pandas.DataFrame(_email_package['errors'], columns=email_df_cols)
+    email_df['track num'] += '\''
+    email_df.to_csv(EMAIL_CSV_NAME, index=False)
+
+    Mail.SendFile(email_to, email_from, email_message, email_subject, file_loc, file_name)
 
 
 

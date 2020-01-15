@@ -49,8 +49,6 @@ Tracking.py (module)
                                                                                  ###   IMPORTS   ###
                                                                                  ###################
 
-
-
 """ KEEP FOR EXPORTING """
 # import sys
 # sys.path.insert(0, '/tomcat/python')
@@ -75,8 +73,6 @@ from usps import USPSApi
 ####################################################################################################
                                                                                ###   CONSTANTS   ###
                                                                                #####################
-
-
 
 # getSingleUpsJson()
 UPS_ACCESS_LICENSE_NUMBER = cred.UPS_ACCESS_LICENSE_NUMBER
@@ -129,8 +125,6 @@ FEDEX_DELIVERED_MESSAGES = ['Delivered']
                                                                                  ###   METHODS   ###
                                                                                  ###################
 
-
-
 def removeNonAscii(string, replace=''):
     """
     input:  string = String to have non-ascii characters removed.
@@ -147,8 +141,6 @@ def removeNonAscii(string, replace=''):
 ####################################################################################################
                                                                            ###   METHODS / UPS   ###
                                                                            #########################
-
-
 
 def getSingleUpsJson(_tracking_number, activity_type='last'):
     """
@@ -315,14 +307,17 @@ def getSingleUpsHistory(_tracking_number):
                                                                           ###   METHODS / USPS   ###
                                                                           ##########################
 
-
-
 def getSingleUspsJson(_tracking_number):
     """
     input:  constants = USPS_REQUEST_ATTEMPTS, USPS_USER_ID, USPS_REQUEST_DELAY
             _tracking_number = USPS tracking number to be sent to USPS API to recover tracking data.
     output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
     """
+
+    # (garbage-in fix) USPS API does not throw errors from empty tracking numbers, it will just
+    # timeout.  This auto generates a USPS API formatted error response.
+    if not _tracking_number:
+        return {'TrackResponse': {'TrackInfo': {'Error': {'Description': 'no tracking number'}}}}
 
     usps_data_ = {}
     for i in range(USPS_REQUEST_ATTEMPTS):
@@ -369,6 +364,12 @@ def getSingleUspsVitals(_tracking_number):
     vitals_['message'] = usps_data['Event']
     for loc in ['EventCity', 'EventState', 'EventCountry']:
         if usps_data[loc] != None:  vitals_['message'] += ' ' + usps_data[loc]
+    # try/except uses 'removeNonAscii()' to clean string 'message'.
+    try:
+        print(">>> looking for non-ascii ...", vitals_['message'])
+    except UnicodeEncodeError:
+        vitals_['message'] = removeNonAscii(vitals_['message'])
+        print(">>> non-ascii found...", vitals_['message'])
 
     # Get 'delivered'.
     for message in USPS_DELIVERED_MESSAGES:
@@ -436,8 +437,6 @@ def getSingleUspsHistory(_tracking_number):
 ####################################################################################################
                                                                            ###   METHODS / DHL   ###
                                                                            #########################
-
-
 
 def getSingleDhlJson(_tracking_number):
     """
@@ -571,8 +570,6 @@ def getSingleDhlHistory(_tracking_number):
                                                                          ###   METHODS / FEDEX   ###
                                                                          ###########################
 
-
-
 #########################################################
 """ <> CAUTION <> UNDER CONSTRUCTION <> KEEP CLEAR <> """
 #########################################################
@@ -703,6 +700,10 @@ def getSingleFedExVitals(_tracking_number):
 #########################################################
 
 
+
+####################################################################################################
+                                                                                     ###   OLD   ###
+                                                                                     ###############
 
 """ obsolete 2019-12-26 """
 # def getSingleUspsJson(_tracking_number):
