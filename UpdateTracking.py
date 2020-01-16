@@ -29,8 +29,8 @@ UpdateTracking.py
                                                                                  ###################
 
 # # KEEP FOR EXPORTING
-# import sys
-# sys.path.insert(0, '/tomcat/python')
+import sys
+sys.path.insert(0, '/tomcat/python')
 
 import UpdateTrackingSettings as settings
 from datetime import datetime, timedelta
@@ -75,10 +75,17 @@ YESTERDAY = (begin - timedelta(days=1)).strftime('%Y-%m-%d')
 
 EMAIL_PACKAGE = {'totals': [], 'errors': []}
 
+EMAIL_CSV_NAME = 'errors_email.csv'
+EMAIL_TO = ['dlang@disk.com']
+EMAIL_FROM = 'dlang@disk.com'
+EMAIL_SUBJECT = 'UpdateTracking.py recap'
+FILE_NAME = 'errors.csv'
+EMAIL_DF_COLS = ['comp id', 'ship meth', 'package id', 'track num']
+
 DAYS_AGO = settings.days_ago
 SERIES = settings.series
 
-# DEBUG ... For single series manual input.
+# # DEBUG ... For single series manual input.
 # DAYS_AGO = 30
 # SERIES = [{'company_id': 507,  'shipped_method': 'USPS Media Mail'}]
 
@@ -250,7 +257,7 @@ def filterMultiTrackingNums(_packages):
     """
 
     def splitTrackingNums(_pack):
-        """ Subroutine...  Separate of packages with multiple tracking numbers. """
+        """ Subroutine...  Separation of packages with multiple tracking numbers. """
         multi = [ i.strip() for i in _pack[1].split(';') ]
         splits_ = [ [_pack[0], m] for m in multi ]
         return splits_
@@ -299,54 +306,25 @@ def updateTableArrival(_package_shipment_id, _tracking_number, _vitals):
 
 
 def sendRecapEmail(_email_package):
+    """
+    input:  constants =         EMAIL_DF_COLS, EMAIL_CSV_NAME, EMAIL_TO, EMAIL_FROM, EMAIL_SUBJECT,
+                                FILE_NAME
+            _email_package =    Package built in 'main()' with keys 'totals' and 'errors'.  'totals'
+                                are converted to string 'email_message' for email message, and
+                                'errors' are converted to 'email_df' for email file.
+    output: Send email to 'EMAIL_TO' of recap of 'totals' and 'errors' produced by script.
+    """
 
-    EMAIL_CSV_NAME = 'errors_email.csv'
+    # Build 'email_message'.
+    email_message = '\nrecap of updated package tracking\n\ncomp_id / ship_meth / qty\n'
+    for total in _email_package['totals']:  email_message += '\n' + ' / '.join(total)
 
-    email_to = ['dlang@disk.com']
-    email_from = 'dlang@disk.com'
-    email_message = ''
-    email_subject = 'UpdateTracking.py recap'
-    file_loc = EMAIL_CSV_NAME
-    file_name = 'errors.csv'
-
-    email_df_cols = ['comp id', 'ship meth', 'package id', 'track num']
-
-    email_message += '\ncomp_id ... ship_meth ... qty\n'
-    for total in _email_package['totals']:  email_message += '\n' + ' ... '.join(total)
-
-    # mes_recap_headers = ['comp id', 'ship meth', 'total']
-    # padding = [0, 0, 0]
-    #
-    #
-    # for total in [mes_recap_headers] + _email_package['totals']:
-    #     for i, t in enumerate(total):
-    #         if len(str(t)) > padding[i]:  padding[i] = len(str(t))
-    #
-    # mes_lines = '\n+-{}-+-{}-+-{}-+'.format(*[ '-' * p for p in padding ])
-    # mes_content = '\n| {} | {} | {} |'
-    #
-    # headers_wpad = []
-    # for i, h in enumerate(mes_recap_headers):  headers_wpad += [h.ljust(padding[i])]
-    #
-    # email_message += '\ntotals of packages tracked per company and shipped method\n'
-    # email_message += mes_lines
-    # email_message += mes_content.format(*headers_wpad)
-    # email_message += mes_lines
-    #
-    # for pack in _email_package['totals']:
-    #     pack_wpad = []
-    #     for i, p in enumerate(pack):  pack_wpad += [str(p).ljust(padding[i])]
-    #     email_message += mes_content.format(*pack_wpad)
-    #
-    # email_message += mes_lines
-
-    print(email_message)
-
-    email_df = pandas.DataFrame(_email_package['errors'], columns=email_df_cols)
+    # Build 'email_df' for email's attachment.
+    email_df = pandas.DataFrame(_email_package['errors'], columns=EMAIL_DF_COLS)
     email_df['track num'] += '\''
     email_df.to_csv(EMAIL_CSV_NAME, index=False)
 
-    Mail.SendFile(email_to, email_from, email_message, email_subject, file_loc, file_name)
+    Mail.SendFile(EMAIL_TO, EMAIL_FROM, email_message, EMAIL_SUBJECT, EMAIL_CSV_NAME, FILE_NAME)
 
 
 
