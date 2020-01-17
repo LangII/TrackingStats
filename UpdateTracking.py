@@ -29,10 +29,10 @@ UpdateTracking.py
                                                                                  ###################
 
 # # KEEP FOR EXPORTING
-import sys
-sys.path.insert(0, '/tomcat/python')
+# import sys
+# sys.path.insert(0, '/tomcat/python')
 
-import UpdateTrackingSettings as settings
+import TrackingSettings as settings
 from datetime import datetime, timedelta
 from Required import Connections, Tracking, Mail
 import pandas
@@ -73,7 +73,7 @@ RECHECKING_YESTERDAY = False
 
 YESTERDAY = (begin - timedelta(days=1)).strftime('%Y-%m-%d')
 
-EMAIL_PACKAGE = {'totals': [], 'errors': []}
+EMAIL_PACKAGE = {'totals': [], 'errors': [], 'run_time': ''}
 
 EMAIL_CSV_NAME = 'errors_email.csv'
 EMAIL_TO = ['dlang@disk.com']
@@ -82,12 +82,10 @@ EMAIL_SUBJECT = 'UpdateTracking.py recap'
 FILE_NAME = 'errors.csv'
 EMAIL_DF_COLS = ['comp id', 'ship meth', 'package id', 'track num']
 
-DAYS_AGO = settings.days_ago
-SERIES = settings.series
+SERIES = settings.update_tracking_series
 
 # # DEBUG ... For single series manual input.
-# DAYS_AGO = 30
-# SERIES = [{'company_id': 507,  'shipped_method': 'USPS Media Mail'}]
+# SERIES = [{'company_id': 507,  'shipped_method': 'USPS Media Mail', 'days_ago': 30}]
 
 
 
@@ -100,17 +98,21 @@ def main():
     global COMPANY_ID, SHIPPED_METHOD, DAYS_AGO, EMAIL_PACKAGE
 
     for i, set in enumerate(SERIES):
-        COMPANY_ID, SHIPPED_METHOD = set['company_id'], set['shipped_method']
+        COMPANY_ID      = set['company_id']
+        SHIPPED_METHOD  = set['shipped_method']
+        DAYS_AGO        = set['days_ago']
 
         mainLoop(i + 1, len(SERIES))
 
         print("\n>>> COMPLETED updating tracking ... {}, {}".format(COMPANY_ID, SHIPPED_METHOD))
 
+    run_time = str(datetime.now() - begin)
+    EMAIL_PACKAGE['run_time'] = run_time
+
     print("\n>>> sending recap email ...")
     sendRecapEmail(EMAIL_PACKAGE)
 
-    end = datetime.now()
-    exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n\n")
+    exit("\n>>> DONE ... runtime = " + run_time + "\n\n\n\n")
 
 
 
@@ -318,6 +320,7 @@ def sendRecapEmail(_email_package):
     # Build 'email_message'.
     email_message = '\nrecap of updated package tracking\n\ncomp_id / ship_meth / qty\n'
     for total in _email_package['totals']:  email_message += '\n' + ' / '.join(total)
+    email_message += '\n\nscript runtime:  ' + _email_package['run_time']
 
     # Build 'email_df' for email's attachment.
     email_df = pandas.DataFrame(_email_package['errors'], columns=EMAIL_DF_COLS)
