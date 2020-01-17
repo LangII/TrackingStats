@@ -25,6 +25,7 @@ GenerateTrackingFreqDist.py
 # import sys
 # sys.path.insert(0, '/tomcat/python')
 
+import TrackingSettings as settings
 import pandas
 from collections import OrderedDict, Counter
 from datetime import datetime, timedelta
@@ -65,6 +66,14 @@ DAYS_HEADERS      = [ 'Days' + str(i + 1) for i in range(MAX_FREQ - 1) ]
 SUFFIX_HEADERS    = ['DaysMaxFreqPlus']
 DTD_STATS_HEADERS = PREFIX_HEADERS + DAYS_HEADERS + SUFFIX_HEADERS
 
+SERIES = settings.generate_freq_dist_series
+
+# DEBUG ... For single series manual input.
+SERIES = [{
+    'company_id': 507, 'shipped_method': 'USPS Media Mail', 'date_range_type': 'week',
+    'max_freq': 14
+}]
+
 
 
 ####################################################################################################
@@ -73,6 +82,25 @@ DTD_STATS_HEADERS = PREFIX_HEADERS + DAYS_HEADERS + SUFFIX_HEADERS
 
 def main():
 
+    global COMPANY_ID, SHIPPED_METHOD, DATE_RANGE_TYPE, MAX_FREQ, START_DATE, END_DATE
+
+
+    for i, set in enumerate(SERIES):
+        COMPANY_ID =        set['company_id']
+        SHIPPED_METHOD =    set['shipped_method']
+        DATE_RANGE_TYPE =   set['date_range_type']
+        MAX_FREQ =          set['max_freq']
+        START_DATE, END_DATE = getStartDateAndEndDate()
+
+        mainLoop()
+
+    end = datetime.now()
+    exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n")
+
+
+
+def mainLoop():
+
     print("\n\n>>> retrieving records for:")
     print(">>>    CompanyID     =", COMPANY_ID)
     print(">>>    ShippedMethod =", SHIPPED_METHOD)
@@ -80,6 +108,8 @@ def main():
     print(">>>    StartDate     =", START_DATE)
     print(">>>    EndDate       =", END_DATE)
     print(">>>    MaxFreq       =", MAX_FREQ)
+
+    exit()
 
     records = getRecords()
 
@@ -99,17 +129,35 @@ def main():
         print("\n>>> no records retrieved ... creating empty frequency distribution")
         freq_dist = createEmptyFreqDist()
 
-    print("\n>>> inserting into 'tblDaysToDeliverStats'")
-    insertIntoTableDtdStats(freq_dist, len(records))
-
-    end = datetime.now()
-    exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n")
+    # print("\n>>> inserting into 'tblDaysToDeliverStats'")
+    # insertIntoTableDtdStats(freq_dist, len(records))
 
 
 
 ####################################################################################################
                                                                                ###   FUNCTIONS   ###
                                                                                #####################
+
+
+
+def getStartDateAndEndDate():
+
+    start_date_, end_date_  = '', ''
+
+    if DATE_RANGE_TYPE == 'week':
+        weekday_int = begin.weekday()
+        offset = weekday_int + 1 if weekday_int != 6 else 0
+        end_date_ = begin - timedelta(days=offset + MAX_FREQ)
+        start_date_ = end_date_ - timedelta(days=7)
+        start_date_, end_date_ = [ date.strftime('%Y-%m-%d') for date in [start_date_, end_date_] ]
+
+    elif DATE_RANGE_TYPE == 'month':
+
+        pass
+
+    return start_date_, end_date_
+
+
 
 def getRecords():
     """
