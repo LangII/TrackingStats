@@ -6,8 +6,8 @@
 UpdateTracking.py
 
 - 2019-12-02 by David Lang
-    - Added constant RECHECKING_YESTERDAY and conditionals to query of getPackages().  Conditionals are
-    to check if package data was already pulled that day.  This is so data is not repeatedly
+    - Added constant RECHECKING_YESTERDAY and conditionals to query of getPackages().  Conditionals
+    are to check if package data was already pulled that day.  This is so data is not repeatedly
     retrieved unnecessarily if script is repeatedly run due to time outs or errors.  Then
     RECHECKING_YESTERDAY makes this functionality toggleable for debugging.
 
@@ -98,6 +98,8 @@ def main():
     global COMPANY_ID, SHIPPED_METHOD, DAYS_AGO, EMAIL_PACKAGE
 
     for i, set in enumerate(SERIES):
+
+        # Reset constants per 'set' in SERIES.
         COMPANY_ID      = set['company_id']
         SHIPPED_METHOD  = set['shipped_method']
         DAYS_AGO        = set['days_ago']
@@ -311,15 +313,17 @@ def sendRecapEmail(_email_package):
     """
     input:  constants =         EMAIL_DF_COLS, EMAIL_CSV_NAME, EMAIL_TO, EMAIL_FROM, EMAIL_SUBJECT,
                                 FILE_NAME
-            _email_package =    Package built in 'main()' with keys 'totals' and 'errors'.  'totals'
-                                are converted to string 'email_message' for email message, and
-                                'errors' are converted to 'email_df' for email file.
-    output: Send email to 'EMAIL_TO' of recap of 'totals' and 'errors' produced by script.
+            _email_package =    Package built in 'main()' with keys 'totals', 'errors', and
+                                'run_time'.  'totals' are converted to string 'email_message' for
+                                email message, 'errors' are converted to 'email_df' for email file,
+                                and 'run_time' is a timedelta of the script's run time.
+    output: Send email to 'EMAIL_TO' of recap of 'totals', 'errors' (attached csv), and 'run_time'
+            produced by script.
     """
 
     # Build 'email_message'.
     email_message = '\nrecap of updated package tracking\n\ncomp_id / ship_meth / qty\n'
-    for total in _email_package['totals']:  email_message += '\n' + ' / '.join(total)
+    for total in _email_package['totals']:  email_message += '\n    ' + ' / '.join(total)
     email_message += '\n\nscript runtime:  ' + _email_package['run_time']
 
     # Build 'email_df' for email's attachment.
