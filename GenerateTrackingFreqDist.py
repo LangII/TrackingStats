@@ -29,7 +29,7 @@ import TrackingSettings as settings
 import pandas
 from collections import OrderedDict, Counter
 from datetime import datetime, timedelta
-from Required import Connections
+from Required import Connections, Mail
 
 
 
@@ -48,12 +48,12 @@ cur = conn.cursor()
                                                                                ###   CONSTANTS   ###
                                                                                #####################
 
-COMPANY_ID      = 1232
-SHIPPED_METHOD  = 'USPS Media Mail'
-DATE_RANGE_TYPE = 'week'  # <-- Has to be 'day', 'week', 'month', or 'custom'.
-START_DATE      = '2019-12-22'
-END_DATE        = '2019-12-29'
-MAX_FREQ        = 14
+COMPANY_ID      = 0
+SHIPPED_METHOD  = ''
+DATE_RANGE_TYPE = ''
+START_DATE      = ''
+END_DATE        = ''
+MAX_FREQ        = 0
 
 TBL_PS_HEADERS = ['TrackingNumber', 'CompletionDate']
 TBL_A_HEADERS  = ['MessageTimestamp', 'Delivered']
@@ -62,17 +62,22 @@ DF_HEADERS     = TBL_PS_HEADERS + TBL_A_HEADERS
 PREFIX_HEADERS = [
     'CompanyID', 'ShippedMethod', 'DateRangeType', 'StartDate', 'EndDate', 'MaxFreq', 'TotalShipped'
 ]
-DAYS_HEADERS      = [ 'Days' + str(i + 1) for i in range(MAX_FREQ - 1) ]
-SUFFIX_HEADERS    = ['DaysMaxFreqPlus']
-DTD_STATS_HEADERS = PREFIX_HEADERS + DAYS_HEADERS + SUFFIX_HEADERS
 
+EMAIL_PACKAGE = {'totals': [], 'run_time': ''}
+
+EMAIL_TO = ['dlang@disk.com']
+EMAIL_FROM = 'dlang@disk.com'
+EMAIL_SUBJECT = 'GenerateTrackingFreqDist.py recap'
+
+""" Pulls SERIES from TrackingSettings.py for looping through multiple value sets. """
 SERIES = settings.generate_freq_dist_series
 
-# DEBUG ... For single series manual input.
-SERIES = [{
-    'company_id': 507, 'shipped_method': 'USPS Media Mail', 'date_range_type': 'week',
-    'max_freq': 14
-}]
+""" DEBUG ... For single series manual input. """
+# If ['start_date'] and ['end_date'] are empty, script will auto fill with most recent Sundays.
+# SERIES = [{
+#     'company_id': 507, 'shipped_method': 'USPS Media Mail', 'date_range_type': 'week',
+#     'max_freq': 14, 'start_date': '', 'end_date': ''
+# }]
 
 
 
@@ -83,33 +88,46 @@ SERIES = [{
 def main():
 
     global COMPANY_ID, SHIPPED_METHOD, DATE_RANGE_TYPE, MAX_FREQ, START_DATE, END_DATE
-
+    global DAYS_HEADERS, SUFFIX_HEADERS, DTD_STATS_HEADERS, EMAIL_PACKAGE
 
     for i, set in enumerate(SERIES):
+
+        # Reset constants per 'set' in SERIES.
         COMPANY_ID =        set['company_id']
         SHIPPED_METHOD =    set['shipped_method']
         DATE_RANGE_TYPE =   set['date_range_type']
         MAX_FREQ =          set['max_freq']
-        START_DATE, END_DATE = getStartDateAndEndDate()
+        if not set['start_date'] and not set['end_date']:
+            START_DATE, END_DATE =  getStartDateAndEndDate()
+        else:
+            START_DATE, END_DATE = set['start_date'], set['end_date']
+        DAYS_HEADERS      = [ 'Days' + str(i + 1) for i in range(MAX_FREQ - 1) ]
+        SUFFIX_HEADERS    = ['DaysMaxFreqPlus']
+        DTD_STATS_HEADERS = PREFIX_HEADERS + DAYS_HEADERS + SUFFIX_HEADERS
 
         mainLoop()
 
-    end = datetime.now()
-    exit("\n>>> DONE ... runtime = " + str(end - begin) + "\n\n\n")
+    run_time = str(datetime.now() - begin)
+    EMAIL_PACKAGE['run_time'] = run_time
+
+    print("\n>>> sending recap email ...")
+    sendRecapEmail(EMAIL_PACKAGE)
+
+    exit("\n>>> DONE ... runtime = " + run_time + "\n\n\n")
 
 
 
 def mainLoop():
 
-    print("\n\n>>> retrieving records for:")
+    global EMAIL_PACKAGE
+
+    print("\n\n\n>>> retrieving records for:")
     print(">>>    CompanyID     =", COMPANY_ID)
     print(">>>    ShippedMethod =", SHIPPED_METHOD)
     print(">>>    DateRangeType =", DATE_RANGE_TYPE)
     print(">>>    StartDate     =", START_DATE)
     print(">>>    EndDate       =", END_DATE)
     print(">>>    MaxFreq       =", MAX_FREQ)
-
-    exit()
 
     records = getRecords()
 
@@ -126,11 +144,19 @@ def mainLoop():
         freq_dist = getDaysToDeliverFreqDist(df)
 
     else:
-        print("\n>>> no records retrieved ... creating empty frequency distribution")
+        print("\n>>> NO RECORDS RETRIEVED ... creating empty frequency distribution")
         freq_dist = createEmptyFreqDist()
 
     # print("\n>>> inserting into 'tblDaysToDeliverStats'")
     # insertIntoTableDtdStats(freq_dist, len(records))
+
+    print("\n>>> building email package")
+    loop_pack = [str(COMPANY_ID), SHIPPED_METHOD, DATE_RANGE_TYPE, str(len(records))]
+    EMAIL_PACKAGE['totals'] += [loop_pack]
+
+    completed_print = "\n>>> COMPLETED retrieval and insertion of {} orders for {}, {}, {}ly"
+    completed_insert = [str(len(records)), COMPANY_ID, SHIPPED_METHOD, DATE_RANGE_TYPE]
+    print(completed_print.format(*completed_insert))
 
 
 
@@ -138,12 +164,15 @@ def mainLoop():
                                                                                ###   FUNCTIONS   ###
                                                                                #####################
 
-
-
 def getStartDateAndEndDate():
+    """
+    Return 'start_date_' and 'end_date_', generated datetime objects used in sql query.
+    """
 
     start_date_, end_date_  = '', ''
 
+    # With 'week' DATE_RANGE_TYPE, 'start_date_' and 'end_date_' are two consecutive Sundays, where
+    # 'end_date_' is more than MAX_FREQ from current date.
     if DATE_RANGE_TYPE == 'week':
         weekday_int = begin.weekday()
         offset = weekday_int + 1 if weekday_int != 6 else 0
@@ -151,9 +180,10 @@ def getStartDateAndEndDate():
         start_date_ = end_date_ - timedelta(days=7)
         start_date_, end_date_ = [ date.strftime('%Y-%m-%d') for date in [start_date_, end_date_] ]
 
-    elif DATE_RANGE_TYPE == 'month':
-
-        pass
+    # FUTURE DEV ... Auto generate START_DATE and END_DATE for other DATE_RANGE_TYPE options.
+    elif DATE_RANGE_TYPE == 'month':  pass
+    elif DATE_RANGE_TYPE == 'custom':  pass
+    elif DATE_RANGE_TYPE == 'day':  pass
 
     return start_date_, end_date_
 
@@ -289,6 +319,26 @@ def insertIntoTableDtdStats(_freq_dist, _total):
 
     cur.execute(query, values)
     conn.commit()
+
+
+
+def sendRecapEmail(_email_package):
+    """
+    input:  constants =         EMAIL_TO, EMAIL_FROM, EMAIL_SUBJECT
+            _email_package =    Package built in 'main()' with keys 'totals', 'errors', and
+                                'run_time'.  'totals' are converted to string 'email_message' for
+                                email message, 'errors' are converted to 'email_df' for email file,
+                                and 'run_time' is a timedelta of the script's run time.
+    output: Send email to EMAIL_TO of recap of 'totals' and 'run_time' produced by script.
+    """
+
+    # Build 'email_message' from '_email_package' before sending email.
+    email_message =  '\nrecap of generated tracking frequency distribution statistics\n\n'
+    email_message += '-----\ncompany id / shipped method / date range type / packages shipped :\n'
+    for total in _email_package['totals']:  email_message += '\n    ' + ' / '.join(total)
+    email_message += '\n-----\n\nscript runtime:  ' + _email_package['run_time']
+
+    Mail.SendInfusion(EMAIL_TO, EMAIL_FROM, email_message, EMAIL_SUBJECT)
 
 
 
