@@ -39,23 +39,27 @@ cur = conn.cursor()
                                                                                #####################
 
 """ COMMENT OUT for single manual input """
-# SERIES = settings.weekly_accumulation_report_series
+SERIES = settings.weekly_accumulation_report_series
 
 """ COMMENT IN (and input values) for single manual input """
-SERIES = [{
-    'company_id':       1899,
-    'shipped_method':   'UPS MI BPM',
-    'date_range_type':  'week',
-    'max_freq':         14,
-    # 'start_date':       ''
-    'start_date':       '2019-10-06'
-}]
+# SERIES = [{
+#     'company_id':       1899,
+#     'shipped_method':   'UPS MI Parcel Select',
+#     'date_range_type':  'week',
+#     'max_freq':         14,
+#     # 'start_date':       ''
+#     'start_date':       '2019-10-20'
+# }]
 
 CSV_PATH = 'prints/tests/'
 
 COMPANY_ID, SHIPPED_METHOD, DATE_RANGE_TYPE, MAX_FREQ, START_DATE, CSV_NAME = 0, '', '', 0, '', ''
 
-COLUMNS = ['CompanyID', 'StartDate', 'EndDate', 'TotalShipped', 'DaysMaxFreqPlus']
+# Also controls the order by which the carriers are displayed in 'overview_tab'.
+CARRIERS = ['UPS', 'USPS', 'DHL', 'FedEx']
+
+COLUMNS = ['CompanyID', 'ShippedMethod', 'StartDate', 'EndDate', 'TotalShipped', 'DaysMaxFreqPlus']
+STATS_COLS = ['Mean', 'StDev']
 
 
 
@@ -67,7 +71,8 @@ def main():
 
     global COMPANY_ID, SHIPPED_METHOD, DATE_RANGE_TYPE, MAX_FREQ, START_DATE, COLUMNS, CSV_NAME
 
-    for i, set in enumerate(SERIES):
+    collected_dfs = []
+    for index, set in enumerate(SERIES):
 
         # Get constants per 'set' in SERIES.
         COMPANY_ID =        set['company_id']
@@ -81,43 +86,33 @@ def main():
         # Generate CSV_NAME from 'set' constants.
         CSV_NAME = getCsvName()
 
-        mainAppendToCsv(multi_series)
+        print("\n\n\n>>> current set in SERIES:")
+        print(">>>    CompanyID     =", COMPANY_ID)
+        print(">>>    ShippedMethod =", SHIPPED_METHOD)
+        print(">>>    DateRangeType =", DATE_RANGE_TYPE)
+        print(">>>    MaxFreq       =", MAX_FREQ)
+        print(">>>    StartDate     =", START_DATE)
 
-    # Collect data for 'OverviewTab' if multiple entries in SERIES.
-    if len(SERIES) >= 2:
-        print("\n>>> generating report for multi-series ...")
-        mainGenerateReport()
+        print("\n>>> getting statistics")
+        stats = getStatistics()
+
+        print("\n>>> converting statistics to dataframe")
+        df = convertStatsToDf(stats)
+
+        print("\n>>> updating dataframe with mean and standard deviation")
+        df = updateDfWithMeanAndStDev(df)
+
+        # print("\n>>> saving dataframe to csv")
+        # saveDfToCsv(df)
+
+        print("\n>>> collecting dataframe")
+        collected_dfs += [df]
+
+    print("\n>>> processing collected dataframes")
+    processCollectedDfs(collected_dfs)
 
     run_time = str(datetime.now() - begin)
     exit("\n>>> DONE ... runtime = " + run_time + "\n\n\n")
-
-
-
-def mainAppendToCsv(_multi_series):
-
-    print("\n\n\n>>> appending to csv for:")
-    print(">>>    CompanyID     =", COMPANY_ID)
-    print(">>>    ShippedMethod =", SHIPPED_METHOD)
-    print(">>>    DateRangeType =", DATE_RANGE_TYPE)
-    print(">>>    MaxFreq       =", MAX_FREQ)
-    print(">>>    StartDate     =", START_DATE)
-
-    print("\n>>> retrieving statistics and converting to dataframe")
-    df = convertStatsToDf(getStatistics())
-
-    print("\n>>> calculating and appending mean and stdev to dataframe")
-    df = updateDfWithMeanAndStDev(df)
-
-    print("\n>>> appending dataframe to csv")
-    saveDfToCsv(df)
-
-
-
-# def mainGenerateReport():
-#
-#     for i, set in enumerate(SERIES):
-#
-#
 
 
 
@@ -192,7 +187,7 @@ def updateDfWithMeanAndStDev(_df):
     output: Return dataframe with additional calculated rows of 'Mean' and 'StDev'.
     """
 
-    new_columns = _df.columns.tolist() + ['Mean', 'StDev']
+    new_columns = _df.columns.tolist() + STATS_COLS
     df_ = pandas.DataFrame(columns=new_columns)
 
     # The "lazy" method if iterating through a dataframe is used because two different column
@@ -236,6 +231,76 @@ def saveDfToCsv(_df):
     else:                       first_save = True
 
     _df.to_csv(csv_loc, mode='a', index=False, header=first_save)
+
+
+
+def processCollectedDfs(_collected_dfs):
+
+    df = pandas.concat(_collected_dfs, ignore_index=True)
+    print(""), print(df)
+    # df.to_csv('prints/tests/temp.csv')
+
+    """ Subroutine ... Get 'Carrier' from comparing 'ShippedMethod' with 'CARRIERS'. """
+    def addCarrier(row):
+        for carrier in CARRIERS:
+            if row['ShippedMethod'].startswith(carrier):  return carrier
+    df['Carrier'] = df.apply(addCarrier, axis='columns')
+
+
+
+    # Sort columns.
+    cols = df.columns.tolist()
+    df = df[cols[:1] + cols[-1:] + cols[1:-1]]
+
+    # BLOCK ... Sort rows.
+    df = df.sort_values(by='ShippedMethod')
+    # Sort by order of CARRIERS.
+    df['Carrier'] = pandas.Categorical(df['Carrier'], CARRIERS)
+    df = df.sort_values('Carrier')
+
+    print(""), print(df)
+
+
+
+    copy_cols = ['Carrier', 'ShippedMethod', 'StartDate', 'EndDate']
+    not_sum_cols = copy_cols + STATS_COLS + ['CompanyID']
+    sum_cols = [ col for col in df.columns.tolist() if col not in not_sum_cols ]
+
+    # Create and insert 'totals' rows.
+    for sm in df['ShippedMethod'].unique().tolist():
+
+        # Get df of individual shipped methods.
+        sm_df = df.loc[df['ShippedMethod'] == sm]
+
+        # Create working totals row by copying first row of 'sm_df'.
+        sm_totals_df = sm_df.iloc[[0]].copy()
+
+        # Reset unwanted values of totals row.
+        for col in sm_totals_df.columns.tolist():
+            if col not in copy_cols:  sm_totals_df[col] = 0
+
+        # Reset 'CompanyID' value.
+        sm_totals_df['CompanyID'] = 'TOTALS'
+
+        # Fill totals values with values from 'sm_df' (the ones that just need to be summed).
+        for col in sum_cols:  sm_totals_df[col] = sum(sm_df[col].tolist())
+
+        
+
+
+
+        # print("")
+        # print(sm_df)
+        # print("")
+        # print(sm_totals_df)
+
+        # break
+
+
+
+
+
+
 
 
 
