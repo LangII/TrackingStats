@@ -75,7 +75,7 @@ ONE_OFF_CSV_NAME_SUFFIX = ''
 CSV_NAMES = {'singles': [], 'totals': ''}
 
 TOTALS_PREFIX_HEADERS = ['WeekOf', 'Values']
-TOTALS_VALUES = ['PackagesShipped', 'AverageDtd', 'Deviation', 'MaxFreqPlus']
+TOTALS_VALUES = ['TotalShipped', 'Mean', 'StDev', 'DaysMaxFreqPlus']
 
 
 
@@ -137,25 +137,25 @@ def main():
         collection_df = pandas.concat(collected_dfs, ignore_index=True)
 
         print("\n>>> generating totals dataframe (total per shipped method)")
-        totals_df = generatingTotalsDf(collection_df)
+        totals_df_ = generatingTotalsDf(collection_df)
 
         # FutureWarning: Sorting because non-concatenation axis is not alligned. A future version
         # of pandas will change to not sort by default. To accept the future behavior, pass
         # 'sort=False'. To retain the current behavior and silence the warning, pass 'sort=True'.
         print("\n>>> combining totals df with collected single dataframes")
-        totals_df = pandas.concat([collection_df, totals_df], ignore_index=True, sort=True)
+        totals_df_ = pandas.concat([collection_df, totals_df_], ignore_index=True, sort=True)
 
         print("\n>>> dropping and reordering columns for combined dataframe")
-        totals_df = totals_df[TOTALS_COLS]
+        totals_df_ = totals_df_[TOTALS_COLS]
 
-        print("\n>>> 'totals_df' print out ...\n")
-        print(totals_df)
+        print("\n>>> 'totals_df_' print out ...\n")
+        print(totals_df_)
 
         print("\n>>> saving totals dataframe to csv")
-        saveDfToCsv(totals_df, type='totals')
+        saveDfToCsv(totals_df_, type='totals')
 
     print("\n>>> generating final totals dataframe")
-    final_totals_df = generateFinalTotalsDf()
+    final_totals_df_ = generateFinalTotalsDf()
 
     run_time = str(datetime.now() - begin)
     exit("\n>>> DONE ... runtime = " + run_time + "\n\n\n")
@@ -304,7 +304,7 @@ def generatingTotalsDf(_df):
     """
     input:  constants = CARRIERS, STATS_COLS
             _df = Dataframe concatenated from collected set dataframes from SERIES.
-    output: Return 'totals_df_', a dataframe of generated totals per 'ShippedMethod'.
+    output: Return 'totals_df__', a dataframe of generated totals per 'ShippedMethod'.
     """
 
     def addCarrier(row):
@@ -327,37 +327,42 @@ def generatingTotalsDf(_df):
     sum_cols = [ col for col in df.columns.tolist() if col not in not_sum_cols ]
 
     # Create and insert 'totals' (per 'ShippedMethod' (sm)) rows.
-    totals_dfs = []
+    totals_df_s = []
     for sm in df['ShippedMethod'].unique().tolist():
 
         # Get sub df of individual shipped methods.  Then create working totals rows by copying
         # first row of sub df.
         sm_sub_df = df.loc[df['ShippedMethod'] == sm]
-        sm_totals_df = sm_sub_df.iloc[[0]].copy()
+        sm_totals_df_ = sm_sub_df.iloc[[0]].copy()
 
         # Reset unwanted values of totals row and reset 'CompanyID'.
-        for col in sm_totals_df.columns.tolist():
-            if col not in copy_cols:  sm_totals_df[col] = 0
-        sm_totals_df['CompanyID'] = 'TOTALS'
+        for col in sm_totals_df_.columns.tolist():
+            if col not in copy_cols:  sm_totals_df_[col] = 0
+        sm_totals_df_['CompanyID'] = 'TOTALS'
 
         # BLOCK ...  Generate 'totals' values.  First by summing values from 'sum_cols', then drop
         # 'Mean' and 'StDev' (STATS_COLS) before generating them with updateDFWithMeanAndStDev().
-        for col in sum_cols:  sm_totals_df[col] = sum(sm_sub_df[col].tolist())
-        sm_totals_df = sm_totals_df.drop(STATS_COLS, axis='columns')
-        sm_totals_df = updateDfWithMeanAndStDev(sm_totals_df)
+        for col in sum_cols:  sm_totals_df_[col] = sum(sm_sub_df[col].tolist())
+        sm_totals_df_ = sm_totals_df_.drop(STATS_COLS, axis='columns')
+        sm_totals_df_ = updateDfWithMeanAndStDev(sm_totals_df_)
 
-        totals_dfs += [sm_totals_df]
+        totals_df_s += [sm_totals_df_]
 
-    totals_df_ = pandas.concat(totals_dfs, ignore_index=True)
+    totals_df__ = pandas.concat(totals_df_s, ignore_index=True)
 
-    return totals_df_
+    return totals_df__
 
 
 
 def generateFinalTotalsDf():
+    """
+    input:
+    output:
+    """
 
     print("\n>>>   <><><> UNDER CONSTRUCTION <><><>\n")
 
+    # Get accumulated totals dataframe.
     raw_df = pandas.read_csv(CSV_PATH + CSV_NAMES['totals'], encoding='ISO-8859-1')
 
     # Add zero padding to 'CompanyID' for consistent sorting.
@@ -386,30 +391,36 @@ def generateFinalTotalsDf():
 
     print(raw_df)
 
+    """ Start of build of 'totals_df_'. """
+
+    # Get list of dates.
     dates = raw_df['WeekOf'].unique().tolist()
 
-    single_date_df = raw_df.loc[raw_df['WeekOf'] == dates[0]]
+    # Get dataframe of first date group for getting headers.
+    first_date_df = raw_df.loc[raw_df['WeekOf'] == dates[0]]
 
-    totals_cols = (single_date_df['ShippedMethod'] + ' - ' + single_date_df['CompanyID']).tolist()
+    # Initiate 'totals_df_' with generic 'totals_cols' columns.
+    totals_cols = (first_date_df['ShippedMethod'] + ' - ' + first_date_df['CompanyID']).tolist()
+    totals_df_ = pandas.DataFrame(columns=TOTALS_PREFIX_HEADERS + totals_cols)
 
-    totals_df = pandas.DataFrame(columns=TOTALS_PREFIX_HEADERS + totals_cols)
-
+    # Build 'totals_df_' with rows of headers.
     for header_row in ['Carrier', 'ShippedMethod', 'CompanyID']:
         first_two = ['', ''] if header_row != 'CompanyID' else TOTALS_PREFIX_HEADERS
-        totals_df.loc[len(totals_df)] = first_two + single_date_df[header_row].tolist()
+        totals_df_.loc[len(totals_df_)] = first_two + first_date_df[header_row].tolist()
 
+    # BLOCK ...  Populating table with data.
+    # Handle each date block.
+    for date in dates:
+        # Get sub-dataframe to parse out data per date block.
+        single_date_df = raw_df.loc[raw_df['WeekOf'] == date]
+        # Each row within each 'date', represents a 'value' from TOTALS_VALUES.
+        for value in TOTALS_VALUES:
+            # Append collected values to 'totals_df_'.
+            totals_df_.loc[len(totals_df_)] = [date, value] + single_date_df[value].tolist()
 
+    totals_df_.to_csv(CSV_PATH + 'temp.csv', index=False)
 
-    totals_df.to_csv(CSV_PATH + 'temp.csv', index=False)
-
-
-
-    # totals_df = pandas.dataframe(columns=[])
-
-    # for date in dates:
-    #     date_batch
-
-    return
+    return totals_df_
 
 
 
