@@ -41,7 +41,10 @@ cur = conn.cursor()
 """ COMMENT OUT for single manual input """
 SERIES = settings.weekly_accumulation_report_series
 
-""" COMMENT IN (and input values) for single manual input """
+""" COMMENT IN (and input values) for single manual input ...
+    -   ['start_date'] should be empty for automated data pull.  If ['start_date'] is empty then
+        TOTALS report will accumulate as well as individuals.  If ['start_date'] is not empty, then
+        TOTALS report will not accumulate and be ignored. """
 # SERIES = [{
 #     'company_id':       1899,
 #     'shipped_method':   'UPS MI Parcel Select',
@@ -56,7 +59,8 @@ CSV_PATH = 'prints/tests/'
 COMPANY_ID, SHIPPED_METHOD, DATE_RANGE_TYPE, MAX_FREQ, START_DATE = 0, '', '', 0, ''
 
 # Also controls the order by which the carriers are displayed in 'overview_tab'.
-CARRIERS = ['UPS', 'USPS', 'DHL', 'FedEx']
+# CARRIERS = ['UPS', 'USPS', 'DHL', 'FedEx']
+CARRIERS = ['USPS', 'UPS', 'DHL', 'FedEx']
 
 COLUMNS = ['CompanyID', 'ShippedMethod', 'StartDate', 'EndDate', 'TotalShipped', 'DaysMaxFreqPlus']
 STATS_COLS = ['Mean', 'StDev']
@@ -65,7 +69,13 @@ TOTALS_COLS = [
     'StDev', 'DaysMaxFreqPlus'
 ]
 
+PERFORM_CSV_SAVES = False
 ONE_OFF_CSV_NAME_SUFFIX = ''
+
+CSV_NAMES = {'singles': [], 'totals': ''}
+
+TOTALS_PREFIX_HEADERS = ['WeekOf', 'Values']
+TOTALS_VALUES = ['PackagesShipped', 'AverageDtd', 'Deviation', 'MaxFreqPlus']
 
 
 
@@ -76,7 +86,6 @@ ONE_OFF_CSV_NAME_SUFFIX = ''
 def main():
 
     global COMPANY_ID, SHIPPED_METHOD, DATE_RANGE_TYPE, MAX_FREQ, START_DATE, DAYS_COLS, COLUMNS
-    # global CSV_NAME
 
     collected_dfs = []
     for index, set in enumerate(SERIES):
@@ -110,8 +119,8 @@ def main():
         print("\n>>> updating single dataframe with mean and standard deviation")
         single_df = updateDfWithMeanAndStDev(single_df)
 
-        # print("\n>>> saving single dataframe to csv")
-        # saveDfToCsv(single_df, type='single')
+        print("\n>>> saving single dataframe to csv")
+        saveDfToCsv(single_df, type='single')
 
         print("\n>>> 'single_df' print out ...\n")
         print(single_df)
@@ -130,8 +139,11 @@ def main():
         print("\n>>> generating totals dataframe (total per shipped method)")
         totals_df = generatingTotalsDf(collection_df)
 
+        # FutureWarning: Sorting because non-concatenation axis is not alligned. A future version
+        # of pandas will change to not sort by default. To accept the future behavior, pass
+        # 'sort=False'. To retain the current behavior and silence the warning, pass 'sort=True'.
         print("\n>>> combining totals df with collected single dataframes")
-        totals_df = pandas.concat([collection_df, totals_df], ignore_index=True)
+        totals_df = pandas.concat([collection_df, totals_df], ignore_index=True, sort=True)
 
         print("\n>>> dropping and reordering columns for combined dataframe")
         totals_df = totals_df[TOTALS_COLS]
@@ -139,11 +151,11 @@ def main():
         print("\n>>> 'totals_df' print out ...\n")
         print(totals_df)
 
-        # print("\n>>> saving totals dataframe to csv")
-        # saveDfToCsv(totals_df, type='totals')
+        print("\n>>> saving totals dataframe to csv")
+        saveDfToCsv(totals_df, type='totals')
 
-    print("\n>>> generating final reports")
-    generateFinalReports()
+    print("\n>>> generating final totals dataframe")
+    final_totals_df = generateFinalTotalsDf()
 
     run_time = str(datetime.now() - begin)
     exit("\n>>> DONE ... runtime = " + run_time + "\n\n\n")
@@ -218,7 +230,7 @@ def convertStatsToDf(_stats):
 def getCsvName(type='single'):
     """
     input:  constants = SHIPPED_METHOD, COMPANY_ID, DATE_RANGE_TYPE, ONE_OFF_CSV_NAME_SUFFIX,
-                        MAX_FREQ
+                        MAX_FREQ, CSV_NAMES
     output: Return string 'csv_name_', name given to csv file derived from constants of set of
             SERIES.
     """
@@ -229,8 +241,10 @@ def getCsvName(type='single'):
         shipped_method = ''.join([ word.lower().title() for word in SHIPPED_METHOD.split() ])
         name_parts = [str(COMPANY_ID), shipped_method, DATE_RANGE_TYPE + 'ly', suffix]
         csv_name_ = '_'.join(name_parts) + '.csv'
+        CSV_NAMES['singles'] += [csv_name_]
     elif type == 'totals':
         csv_name_ = '_'.join(['TOTALS', DATE_RANGE_TYPE + 'ly', suffix]) + '.csv'
+        CSV_NAMES['totals'] = csv_name_
 
     return csv_name_
 
@@ -238,7 +252,7 @@ def getCsvName(type='single'):
 
 def saveDfToCsv(_df, type='single'):
     """
-    input:  constants = CSV_PATH, CSV_NAME
+    input:  constants = CSV_PATH, CSV_NAME, PERFORM_CSV_SAVES
             _df = Dataframe of set stats with mean and stdev.
     output: Save '_df' to csv designated by input.
     """
@@ -247,7 +261,8 @@ def saveDfToCsv(_df, type='single'):
     if path.exists(csv_loc):    first_save = False
     else:                       first_save = True
 
-    _df.to_csv(csv_loc, mode='a', index=False, header=first_save)
+    if PERFORM_CSV_SAVES:   _df.to_csv(csv_loc, mode='a', index=False, header=first_save)
+    else:                   print("\n>>> TESTING ...  not performing csv saves")
 
 
 
@@ -298,7 +313,7 @@ def generatingTotalsDf(_df):
             if row['ShippedMethod'].startswith(carrier):    return carrier
     _df['Carrier'] = _df.apply(addCarrier, axis='columns')
 
-    # BLOCK ...  Sort columns, then rows with 'sort_values'.
+    # BLOCK ...  Manual sort columns, then rows with 'sort_values'.
     cols = _df.columns.tolist()
     df = _df[cols[:1] + cols[-1:] + cols[1:-1]]
     df = df.sort_values(by='ShippedMethod')
@@ -339,7 +354,60 @@ def generatingTotalsDf(_df):
 
 
 
-def generateFinalReports():
+def generateFinalTotalsDf():
+
+    print("\n>>>   <><><> UNDER CONSTRUCTION <><><>\n")
+
+    raw_df = pandas.read_csv(CSV_PATH + CSV_NAMES['totals'], encoding='ISO-8859-1')
+
+    # Add zero padding to 'CompanyID' for consistent sorting.
+    def zeroPadding(row):
+        return row['CompanyID'].rjust(4, '0') if row['CompanyID'] != 'TOTALS' else row['CompanyID']
+    raw_df['CompanyID'] = raw_df.apply(zeroPadding, axis='columns')
+
+    # Sort 'raw_df' with parallel arrays 'sort_by' and 'sort_asc'.
+    sort_by, sort_asc = ['StartDate', 'ShippedMethod', 'CompanyID'], [False, True, True]
+    raw_df = raw_df.sort_values(by=sort_by, ascending=sort_asc)
+
+    # BLOCK ...  Convert columns 'StartDate' and 'EndDate' to 'WeekOf'.
+    def modifyDateCols(row):
+        def modifyDateString(_date):
+            date = _date[_date.find('-') + 1:]
+            # Remove padded zeros.
+            month, day = [ i[1:] if int(i) <= 9 else i for i in [date[:2], date[3:]] ]
+            return month + '/' + day
+        return modifyDateString(row['StartDate']) + ' to ' + modifyDateString(row['EndDate'])
+    raw_df['WeekOf'] = raw_df.apply(modifyDateCols, axis='columns')
+
+    # Rearrange (and drop) columns.
+    raw_df = raw_df.drop(['StartDate', 'EndDate'], axis='columns')
+    cols = raw_df.columns.tolist()
+    raw_df = raw_df[cols[-1:] + cols[:-1]]
+
+    print(raw_df)
+
+    dates = raw_df['WeekOf'].unique().tolist()
+
+    single_date_df = raw_df.loc[raw_df['WeekOf'] == dates[0]]
+
+    totals_cols = (single_date_df['ShippedMethod'] + ' - ' + single_date_df['CompanyID']).tolist()
+
+    totals_df = pandas.DataFrame(columns=TOTALS_PREFIX_HEADERS + totals_cols)
+
+    for header_row in ['Carrier', 'ShippedMethod', 'CompanyID']:
+        first_two = ['', ''] if header_row != 'CompanyID' else TOTALS_PREFIX_HEADERS
+        totals_df.loc[len(totals_df)] = first_two + single_date_df[header_row].tolist()
+
+
+
+    totals_df.to_csv(CSV_PATH + 'temp.csv', index=False)
+
+
+
+    # totals_df = pandas.dataframe(columns=[])
+
+    # for date in dates:
+    #     date_batch
 
     return
 
