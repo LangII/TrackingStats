@@ -45,11 +45,11 @@ cur = conn.cursor()
                                                                                ###   CONSTANTS   ###
                                                                                #####################
 
-COMPANY_ID      = 1232
+COMPANY_ID      = 735
 SHIPPED_METHOD  = 'USPS Media Mail'
 DATE_RANGE_TYPE = 'week'
 GT_ET_DATE      = '2019-10-06'
-LT_ET_DATE      = '2019-12-22'
+LT_ET_DATE      = '2019-12-29'
 MAX_FREQ        = 14
 
 COLUMNS = ['CompanyID', 'StartDate', 'EndDate', 'TotalShipped', 'DaysMaxFreqPlus']
@@ -69,7 +69,7 @@ def main():
     df = updateDfWithMeanAndStDev(df)
     print(df)
 
-    df.to_csv('prints/print_out.csv')
+    df.to_csv('prints/print_out.csv', index=False)
 
     generatePlots(df)
 
@@ -98,6 +98,7 @@ def getStats():
                 AND DateRangeType = %s
                 AND StartDate >= %s
                 AND StartDate <= %s
+            ORDER BY StartDate ASC
     """
     query = query.format(', '.join(COLUMNS))
     values = [COMPANY_ID, SHIPPED_METHOD, MAX_FREQ, DATE_RANGE_TYPE, GT_ET_DATE, LT_ET_DATE]

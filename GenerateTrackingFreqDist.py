@@ -73,10 +73,11 @@ EMAIL_SUBJECT = 'GenerateTrackingFreqDist.py recap'
 SERIES = settings.generate_freq_dist_series
 
 """ DEBUG ... For single series manual input. """
-# If ['start_date'] and ['end_date'] are empty, script will auto fill with most recent Sundays.
+# If ['start_date'] and ['end_date'] are empty, script will auto fill with most recent Sundays
+# assuming 'date_range_type' is 'week'.
 # SERIES = [{
-#     'company_id': 507, 'shipped_method': 'USPS Media Mail', 'date_range_type': 'week',
-#     'max_freq': 14, 'start_date': '', 'end_date': ''
+#     'company_id': 1826, 'shipped_method': 'DHL Parcel International Standard',
+#     'date_range_type': 'custom', 'max_freq': 30, 'start_date': '2019-09-01', 'end_date': '2019-12-31'
 # }]
 
 
@@ -110,7 +111,7 @@ def main():
     run_time = str(datetime.now() - begin)
     EMAIL_PACKAGE['run_time'] = run_time
 
-    print("\n>>> sending recap email ...")
+    print("\n\n\n>>> sending recap email ...")
     sendRecapEmail(EMAIL_PACKAGE)
 
     exit("\n>>> DONE ... runtime = " + run_time + "\n\n\n")
@@ -147,8 +148,8 @@ def mainLoop():
         print("\n>>> NO RECORDS RETRIEVED ... creating empty frequency distribution")
         freq_dist = createEmptyFreqDist()
 
-    # print("\n>>> inserting into 'tblDaysToDeliverStats'")
-    # insertIntoTableDtdStats(freq_dist, len(records))
+    print("\n>>> inserting into 'tblDaysToDeliverStats'")
+    insertIntoTableDtdStats(freq_dist, len(records))
 
     print("\n>>> building email package")
     loop_pack = [str(COMPANY_ID), SHIPPED_METHOD, DATE_RANGE_TYPE, str(len(records))]
