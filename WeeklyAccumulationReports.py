@@ -143,19 +143,21 @@ def main():
         # of pandas will change to not sort by default. To accept the future behavior, pass
         # 'sort=False'. To retain the current behavior and silence the warning, pass 'sort=True'.
         print("\n>>> combining totals df with collected single dataframes")
-        totals_df_ = pandas.concat([collection_df, totals_df_], ignore_index=True, sort=True)
+        totals_df = pandas.concat([collection_df, totals_df_], ignore_index=True, sort=True)
 
         print("\n>>> dropping and reordering columns for combined dataframe")
-        totals_df_ = totals_df_[TOTALS_COLS]
+        totals_df = totals_df[TOTALS_COLS]
 
         print("\n>>> 'totals_df_' print out ...\n")
-        print(totals_df_)
+        print(totals_df)
 
         print("\n>>> saving totals dataframe to csv")
-        saveDfToCsv(totals_df_, type='totals')
+        saveDfToCsv(totals_df, type='totals')
 
     print("\n>>> generating final totals dataframe")
-    final_totals_df_ = generateFinalTotalsDf()
+    final_totals_df = generateFinalTotalsDf()
+
+    testStyling(final_totals_df)
 
     run_time = str(datetime.now() - begin)
     exit("\n>>> DONE ... runtime = " + run_time + "\n\n\n")
@@ -360,8 +362,6 @@ def generateFinalTotalsDf():
     output:
     """
 
-    print("\n>>>   <><><> UNDER CONSTRUCTION <><><>\n")
-
     # Get accumulated totals dataframe.
     raw_df = pandas.read_csv(CSV_PATH + CSV_NAMES['totals'], encoding='ISO-8859-1')
 
@@ -391,7 +391,7 @@ def generateFinalTotalsDf():
 
     print(raw_df)
 
-    """ Start of build of 'totals_df_'. """
+    """ Start build of 'totals_df_'. """
 
     # Get list of dates.
     dates = raw_df['WeekOf'].unique().tolist()
@@ -421,6 +421,62 @@ def generateFinalTotalsDf():
     totals_df_.to_csv(CSV_PATH + 'temp.csv', index=False)
 
     return totals_df_
+
+
+
+def testStyling(_test_df):
+
+    print("\n\n\n>>>   <><><> TESTING <><><>\n")
+
+    print(_test_df)
+
+    # Build 'sheet' for excel styling (using 'XlsxWriter' as engine).
+    writer = pandas.ExcelWriter(CSV_PATH + 'teststyle01.xlsx', engine='xlsxwriter')
+    _test_df.to_excel(writer, sheet_name='teststylesheet01', header=False, index=False)
+    book, sheet = writer.book, writer.sheets['teststylesheet01']
+
+    """   Perform cell merges.   """
+
+    merge_format = book.add_format({'align': 'center', 'valign': 'vcenter'})
+
+    # Start to build container for looping through merge sets with TOTALS set.
+    merges = [[0, 0, 1, 1, 'TOTALS']]
+
+    def getHeaderMerges(_row):
+
+        row_as_list = _test_df.loc[_row].tolist()
+        uniques = sorted(list(set(row_as_list)))[1:]
+
+        header_merges_ = []
+        for u in uniques:
+            start_row, end_row = _row, _row
+            start_col = row_as_list.index(u)
+            end_col = max([ i for i, x in enumerate(row_as_list) if x == u ])
+            header_merges_ += [[start_row, start_col, end_row, end_col, u]]
+
+        return header_merges_
+
+    # User 'getHeaderMerges()' to get merge arguments from header rows.
+    for i in [0, 1]:  merges += getHeaderMerges(i)
+
+    # Get merge sets for 'WeekOf' column (dates) and append to 'merges'.
+    dates_list = _test_df['WeekOf'].tolist()
+    unique_dates = sorted(list(set(dates_list)))[1:-1]
+    for u in unique_dates:
+        start_col, end_col = 0, 0
+        start_row = dates_list.index(u)
+        end_row = max([ i for i, x in enumerate(dates_list) if x == u ])
+        merges += [[start_row, start_col, end_row,end_col, u]]
+
+    # Loop through 'merges' to perform individual merges on 'sheet'.
+    for start_row, start_col, end_row, end_col, value in merges:
+        sheet.merge_range(start_row, start_col, end_row, end_col, value, merge_format)
+
+    writer.save()
+
+    return
+
+
 
 
 
