@@ -74,8 +74,9 @@ ONE_OFF_CSV_NAME_SUFFIX = ''
 
 CSV_NAMES = {'singles': [], 'totals': ''}
 
-TOTALS_PREFIX_HEADERS = ['WeekOf', 'Values']
+TOTALS_PREFIX_HEADERS = ['week of', 'labels']
 TOTALS_VALUES = ['TotalShipped', 'Mean', 'StDev', 'DaysMaxFreqPlus']
+UPDATED_TOTALS_VALUES = ['total packages', 'average dtd', 'deviation', 'not delivered (<14days)']
 
 
 
@@ -356,6 +357,16 @@ def generatingTotalsDf(_df):
 
 
 
+def getCompanyName(_id):
+
+    query = "SELECT CompanyName FROM tblCompany WHERE CompanyID = {}".format(_id)
+    cur.execute(query)
+    select_ = cur.fetchone()[0]
+
+    return select_
+
+
+
 def generateFinalTotalsDf():
     """
     input:
@@ -374,7 +385,7 @@ def generateFinalTotalsDf():
     sort_by, sort_asc = ['StartDate', 'ShippedMethod', 'CompanyID'], [False, True, True]
     raw_df = raw_df.sort_values(by=sort_by, ascending=sort_asc)
 
-    # BLOCK ...  Convert columns 'StartDate' and 'EndDate' to 'WeekOf'.
+    # BLOCK ...  Convert columns 'StartDate' and 'EndDate' to 'week of'.
     def modifyDateCols(row):
         def modifyDateString(_date):
             date = _date[_date.find('-') + 1:]
@@ -382,7 +393,7 @@ def generateFinalTotalsDf():
             month, day = [ i[1:] if int(i) <= 9 else i for i in [date[:2], date[3:]] ]
             return month + '/' + day
         return modifyDateString(row['StartDate']) + ' to ' + modifyDateString(row['EndDate'])
-    raw_df['WeekOf'] = raw_df.apply(modifyDateCols, axis='columns')
+    raw_df['week of'] = raw_df.apply(modifyDateCols, axis='columns')
 
     # Rearrange (and drop) columns.
     raw_df = raw_df.drop(['StartDate', 'EndDate'], axis='columns')
@@ -394,10 +405,10 @@ def generateFinalTotalsDf():
     """ Start build of 'totals_df_'. """
 
     # Get list of dates.
-    dates = raw_df['WeekOf'].unique().tolist()
+    dates = raw_df['week of'].unique().tolist()
 
     # Get dataframe of first date group for getting headers.
-    first_date_df = raw_df.loc[raw_df['WeekOf'] == dates[0]]
+    first_date_df = raw_df.loc[raw_df['week of'] == dates[0]]
 
     # Initiate 'totals_df_' with generic 'totals_cols' columns.
     totals_cols = (first_date_df['ShippedMethod'] + ' - ' + first_date_df['CompanyID']).tolist()
@@ -412,11 +423,23 @@ def generateFinalTotalsDf():
     # Handle each date block.
     for date in dates:
         # Get sub-dataframe to parse out data per date block.
-        single_date_df = raw_df.loc[raw_df['WeekOf'] == date]
+        single_date_df = raw_df.loc[raw_df['week of'] == date]
         # Each row within each 'date', represents a 'value' from TOTALS_VALUES.
         for value in TOTALS_VALUES:
             # Append collected values to 'totals_df_'.
             totals_df_.loc[len(totals_df_)] = [date, value] + single_date_df[value].tolist()
+
+    # Replace 'CompanyID' values with associated 'CompanyName'.
+    companies = totals_df_.iloc[2].tolist()
+    company_names = [ getCompanyName(int(c)) if c.isdigit() else c for c in companies ]
+    totals_cols = totals_df_.columns.tolist()
+    for i, name in enumerate(company_names):  totals_df_.at[2, totals_cols[i]] = name
+
+    # Replace 'labels' with more readable 'labels'.
+    labels, new_labels = totals_df_['labels'].tolist(), []
+    for l in labels:
+        new_labels += [UPDATED_TOTALS_VALUES[TOTALS_VALUES.index(l)] if l in TOTALS_VALUES else l]
+    for i, label in enumerate(new_labels):  totals_df_.at[i, 'labels'] = label
 
     totals_df_.to_csv(CSV_PATH + 'temp.csv', index=False)
 
@@ -435,7 +458,7 @@ def testStyling(_test_df):
     _test_df.to_excel(writer, sheet_name='teststylesheet01', header=False, index=False)
     book, sheet = writer.book, writer.sheets['teststylesheet01']
 
-    """   Perform cell merges.   """
+    """   Merge label cells.   """
 
     merge_format = book.add_format({'align': 'center', 'valign': 'vcenter'})
 
@@ -459,8 +482,8 @@ def testStyling(_test_df):
     # User 'getHeaderMerges()' to get merge arguments from header rows.
     for i in [0, 1]:  merges += getHeaderMerges(i)
 
-    # Get merge sets for 'WeekOf' column (dates) and append to 'merges'.
-    dates_list = _test_df['WeekOf'].tolist()
+    # Get merge sets for 'week of' column (dates) and append to 'merges'.
+    dates_list = _test_df['week of'].tolist()
     unique_dates = sorted(list(set(dates_list)))[1:-1]
     for u in unique_dates:
         start_col, end_col = 0, 0
@@ -472,6 +495,53 @@ def testStyling(_test_df):
     for start_row, start_col, end_row, end_col, value in merges:
         sheet.merge_range(start_row, start_col, end_row, end_col, value, merge_format)
 
+    """   Conditional formatting.   """
+
+    # all = book.add_format({'font_name': '', 'font_size': ''})
+    bordering = book.add_format({'border': 2})
+    bolding = book.add_format({'bold': True})
+    totals_values = book.add_format({'right': 1, 'bold': True})
+    date_block = book.add_format({'bottom': 1})
+    corners = book.add_format({'right': 1, 'bottom': 1, 'bold': True})
+
+    df_width, df_height = len(_test_df.columns) - 1, len(_test_df) - 1
+
+    sheet.conditional_format(0, 0, 2, df_width, {'type': 'no_errors', 'format': bordering})
+    sheet.conditional_format(0, 0, df_height, 1, {'type': 'no_errors', 'format': bordering})
+    sheet.conditional_format(0, 0, 1, df_width, {'type': 'no_errors', 'format': bolding})
+    totals_bolding = {'type': 'cell', 'criteria': '==', 'value': '"TOTALS"', 'format': bolding}
+    sheet.conditional_format(2, 0, 2, df_width, totals_bolding)
+
+    totals_cols = [ i for i, value in enumerate(_test_df.loc[2].tolist()) if value == 'TOTALS' ]
+    date_block_rows = [ i for i, label in enumerate(_test_df['labels'].tolist()) if label == UPDATED_TOTALS_VALUES[-1] ]
+
+    for col in totals_cols:
+        for row in date_block_rows:
+            sheet.conditional_format(row, col, row, col, {'type': 'no_errors', 'format': corners})
+
+    totals_cols_cons = {'type': 'no_errors', 'format': totals_values}
+    for tc in totals_cols:  sheet.conditional_format(3, tc, df_height, tc, totals_cols_cons)
+
+    for dbr in date_block_rows:  sheet.conditional_format(dbr, 2, dbr, df_width, {'type': 'no_errors', 'format': date_block})
+
+
+
+    """
+    TURNOVER NOTES ...
+    In process of styling TOTALS report.
+    HAVE DONE:
+    - All merges, all borders, and all bolds.
+    - Renaming of company ids to company names and renaming of values to easier terminology.
+    NEED TO:
+    - Of all cells, set font name and font size.
+    - Set column width.
+    - Set background color of values in average dtd rows.
+    - Clean up code.
+    """
+
+
+
+    sheet.freeze_panes(3, 2)
     writer.save()
 
     return
