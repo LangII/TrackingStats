@@ -21,6 +21,8 @@ from collections import OrderedDict
 import statistics
 from os import path
 
+import xlsxwriter
+
 
 
 ####################################################################################################
@@ -76,7 +78,7 @@ CSV_NAMES = {'singles': [], 'totals': ''}
 
 TOTALS_PREFIX_HEADERS = ['week of', 'labels']
 TOTALS_VALUES = ['TotalShipped', 'Mean', 'StDev', 'DaysMaxFreqPlus']
-UPDATED_TOTALS_VALUES = ['total packages', 'average dtd', 'deviation', 'not delivered (<14days)']
+UPDATED_TOTALS_VALUES = ['total packages', 'average dtd', 'deviation', 'not delivered (<2w)']
 
 
 
@@ -140,9 +142,9 @@ def main():
         print("\n>>> generating totals dataframe (total per shipped method)")
         totals_df_ = generatingTotalsDf(collection_df)
 
-        # FutureWarning: Sorting because non-concatenation axis is not alligned. A future version
+        # "FutureWarning: Sorting because non-concatenation axis is not alligned. A future version
         # of pandas will change to not sort by default. To accept the future behavior, pass
-        # 'sort=False'. To retain the current behavior and silence the warning, pass 'sort=True'.
+        # 'sort=False'. To retain the current behavior and silence the warning, pass 'sort=True'."
         print("\n>>> combining totals df with collected single dataframes")
         totals_df = pandas.concat([collection_df, totals_df_], ignore_index=True, sort=True)
 
@@ -432,8 +434,10 @@ def generateFinalTotalsDf():
     # Replace 'CompanyID' values with associated 'CompanyName'.
     companies = totals_df_.iloc[2].tolist()
     company_names = [ getCompanyName(int(c)) if c.isdigit() else c for c in companies ]
-    totals_cols = totals_df_.columns.tolist()
-    for i, name in enumerate(company_names):  totals_df_.at[2, totals_cols[i]] = name
+    df_cols = totals_df_.columns.tolist()
+    for i, name in enumerate(company_names):  totals_df_.at[2, df_cols[i]] = name
+    for i, name in enumerate(totals_df_.iloc[2].tolist()):
+        if name == 'Michael Hyatt and Company':  totals_df_.at[2, df_cols[i]] = 'Michael Hyatt & Co'
 
     # Replace 'labels' with more readable 'labels'.
     labels, new_labels = totals_df_['labels'].tolist(), []
@@ -453,12 +457,10 @@ def testStyling(_test_df):
 
     print(_test_df)
 
-    # Build 'sheet' for excel styling (using 'XlsxWriter' as engine).
-    writer = pandas.ExcelWriter(CSV_PATH + 'teststyle01.xlsx', engine='xlsxwriter')
-    _test_df.to_excel(writer, sheet_name='teststylesheet01', header=False, index=False)
-    book, sheet = writer.book, writer.sheets['teststylesheet01']
+    book = xlsxwriter.Workbook(CSV_PATH + 'teststyle02.xlsx')
+    sheet = book.add_worksheet()
 
-    """   Merge label cells.   """
+    """   Perform merges.   """
 
     merge_format = book.add_format({'align': 'center', 'valign': 'vcenter'})
 
@@ -495,54 +497,94 @@ def testStyling(_test_df):
     for start_row, start_col, end_row, end_col, value in merges:
         sheet.merge_range(start_row, start_col, end_row, end_col, value, merge_format)
 
-    """   Conditional formatting.   """
+    """   Apply formatting.   """
 
-    # all = book.add_format({'font_name': '', 'font_size': ''})
-    bordering = book.add_format({'border': 2})
-    bolding = book.add_format({'bold': True})
-    totals_values = book.add_format({'right': 1, 'bold': True})
-    date_block = book.add_format({'bottom': 1})
-    corners = book.add_format({'right': 1, 'bottom': 1, 'bold': True})
+    # Get sizes of '_test_df'.
+    width, height = len(_test_df.columns), len(_test_df)
 
-    df_width, df_height = len(_test_df.columns) - 1, len(_test_df) - 1
-
-    sheet.conditional_format(0, 0, 2, df_width, {'type': 'no_errors', 'format': bordering})
-    sheet.conditional_format(0, 0, df_height, 1, {'type': 'no_errors', 'format': bordering})
-    sheet.conditional_format(0, 0, 1, df_width, {'type': 'no_errors', 'format': bolding})
-    totals_bolding = {'type': 'cell', 'criteria': '==', 'value': '"TOTALS"', 'format': bolding}
-    sheet.conditional_format(2, 0, 2, df_width, totals_bolding)
-
+    # Get lists referencing indexes of specific rows, cols (columns with 'TOTALS', rows with last
+    # row of each date block, and rows with 'average dtd').
     totals_cols = [ i for i, value in enumerate(_test_df.loc[2].tolist()) if value == 'TOTALS' ]
-    date_block_rows = [ i for i, label in enumerate(_test_df['labels'].tolist()) if label == UPDATED_TOTALS_VALUES[-1] ]
+    date_end_rows = [ i for i, label in enumerate(_test_df['labels'].tolist()) if label == UPDATED_TOTALS_VALUES[-1] ]
+    average_rows = [ i for i, label in enumerate(_test_df['labels'].tolist()) if label == 'average dtd' ]
 
-    for col in totals_cols:
-        for row in date_block_rows:
-            sheet.conditional_format(row, col, row, col, {'type': 'no_errors', 'format': corners})
+    # Format dicts.
+    avg_bgc = {'bg_color': '#E0E0E0'}
+    border_bold = {'border': 2}
+    all_font_size = {'font_size': 12}
+    all_values = {**all_font_size, **{'align': 'center'}}
+    all_labels = {**all_font_size, **border_bold}
 
-    totals_cols_cons = {'type': 'no_errors', 'format': totals_values}
-    for tc in totals_cols:  sheet.conditional_format(3, tc, df_height, tc, totals_cols_cons)
-
-    for dbr in date_block_rows:  sheet.conditional_format(dbr, 2, dbr, df_width, {'type': 'no_errors', 'format': date_block})
-
-
-
-    """
-    TURNOVER NOTES ...
-    In process of styling TOTALS report.
-    HAVE DONE:
-    - All merges, all borders, and all bolds.
-    - Renaming of company ids to company names and renaming of values to easier terminology.
-    NEED TO:
-    - Of all cells, set font name and font size.
-    - Set column width.
-    - Set background color of values in average dtd rows.
-    - Clean up code.
-    """
-
+    # Build formats.
+    all_format = book.add_format(all_font_size)
+    values_format = book.add_format(all_values)
+    val_right_format = book.add_format({**all_values, **{'right': 1, 'bold': True}})
+    val_bottom_format = book.add_format({**all_values, **{'bottom': 1}})
+    val_corner_format = book.add_format({**all_values, **{'right': 1, 'bottom': 1, 'bold': True}})
+    avg_format = book.add_format({**all_values, **avg_bgc})
+    avg_corner_format = book.add_format({**all_values, **avg_bgc, **{'right': 1, 'bold': True}})
+    col_labels_format = book.add_format({**all_labels, **{'align': 'center', 'bold': True}})
+    comp_row_format = book.add_format({**all_labels, **{'align': 'center'}})
+    totals_format = book.add_format({**all_labels, **{'align': 'center', 'bold': True}})
+    labels_cell_format = book.add_format({**all_font_size, **border_bold})
+    weekof_col_format = book.add_format({**all_labels, **{'align': 'center', 'valign': 'vcenter'}})
+    labels_col_format = book.add_format(all_labels)
+    totals_cell_format = book.add_format({**all_labels, **{'align': 'center', 'valign': 'vcenter', 'bold': True}})
 
 
+
+    # Initial build of 'format_matrix', to be updated with further detail formatting.
+    format_matrix = [ [ all_format for w in range(width) ] for h in range(height) ]
+
+    # Update 'format_matrix' with detail formatting.
+    for row in range(height)[3:]:
+        for col in range(width)[2:]:    format_matrix[row][col] = values_format
+    for row in range(height)[3:]:
+        for col in totals_cols:         format_matrix[row][col] = val_right_format
+    for row in date_end_rows:
+        for col in range(width)[2:]:    format_matrix[row][col] = val_bottom_format
+    for row in date_end_rows:
+        for col in totals_cols:         format_matrix[row][col] = val_corner_format
+    for row in average_rows:
+        for col in range(width)[2:]:    format_matrix[row][col] = avg_format
+    for row in average_rows:
+        for col in totals_cols:         format_matrix[row][col] = avg_corner_format
+    for row in [0, 1]:
+        for col in range(width):        format_matrix[row][col] = col_labels_format
+    for row in [2]:
+        for col in range(width):        format_matrix[row][col] = comp_row_format
+    for row in [2]:
+        for col in totals_cols:         format_matrix[row][col] = totals_format
+    for row in range(height)[3:]:
+        for col in [0]:                 format_matrix[row][col] = weekof_col_format
+    for row in range(height)[3:]:
+        for col in [1]:                 format_matrix[row][col] = labels_col_format
+
+    # Single cell updates to 'format_matrix'.
+    format_matrix[2][1] = labels_cell_format
+
+    # Application of values from '_test_df' and formatting from 'format_matrix' to 'sheet'.
+    for row in range(height):
+        row_list = _test_df.loc[row].tolist()
+        for col in range(width):
+            sheet.write(row, col, row_list[col], format_matrix[row][col])
+
+    # label 'TOTALS' cell value does not come from '_test_df', i.e. value must be inserted manually.
+    sheet.write(0, 0, 'TOTALS', totals_cell_format)
+
+    # Adjust column widths.
+    weekof_colw = 16
+    sheet.set_column(0, 0, weekof_colw)
+    labels_colw = 20
+    sheet.set_column(1, 1, labels_colw)
+    comps_colw = 20
+    for col in range(width)[2:]:  sheet.set_column(col, col, comps_colw)
+    totals_colw = 10
+    for col in totals_cols:  sheet.set_column(col, col, totals_colw)
+
+    # Set freeze panes and close book.
     sheet.freeze_panes(3, 2)
-    writer.save()
+    book.close()
 
     return
 
