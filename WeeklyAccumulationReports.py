@@ -20,7 +20,6 @@ import pandas
 from collections import OrderedDict
 import statistics
 from os import path
-
 import xlsxwriter
 
 
@@ -80,10 +79,21 @@ TOTALS_PREFIX_HEADERS = ['week of', 'labels']
 TOTALS_VALUES = ['TotalShipped', 'Mean', 'StDev', 'DaysMaxFreqPlus']
 UPDATED_TOTALS_VALUES = ['total packages', 'average dtd', 'deviation', 'not delivered (<2w)']
 
+UPDATED_SINGLES_COL_VALUES = {
+    # convert from      # convert to
+    'CompanyID':       'CompanyName',
+    'TotalShipped':    'TotalPackages',
+    'Mean':            'AverageDTD',
+    'DaysMaxFreqPlus': 'NotDelivered(<2w)',
+    'StDev':           'Deviation',
+}
+
 XLSX_SAVE_NAME = 'xlsx_save_file.xlsx'
 XLSX_EMAIL_NAME = ''
 
 SINGLE_CSVS = []
+
+FORMAT = {}
 
 
 
@@ -173,11 +183,25 @@ def main():
     print("\n>>> building xlsx output file")
     book = xlsxwriter.Workbook(CSV_PATH + XLSX_SAVE_NAME)
 
+    print("\n>>> build global formating dict")
+    buildFormat(book)
+
     print("\n>>> building totals xlsx sheet")
     book = buildTotalsSheet(book, final_totals_df)
 
-    for single_csv in SINGLE_CSVS:
-        book = buildSingleSheet(book, single_csv)
+    print("\n>>> generate single company tabs in xlsx output")
+    for single_csv_name in [SINGLE_CSVS[0]]:
+
+        print("\n>>> retrieve saved company csv and convert to final dataframe format")
+        raw_df = pandas.read_csv(CSV_PATH + single_csv_name, encoding='ISO-8859-1')
+        single_df = convertRawDfToFinalSingleDf(raw_df)
+
+        print("\n>>> convert final company dataframe to styled xlsx tab")
+        book = generateSingleSheet(book, single_df, single_csv_name)
+
+        # exit()
+
+    print("\n\n\n>>> FINISHED generating single xlsx company tabs")
 
     book.close()
 
@@ -387,6 +411,21 @@ def getCompanyName(_id):
 
 
 
+def modifyDateCols(row):
+    """ Return 'week_of', convert value from 'StartDate' and 'EndDate' into 'week of' value. """
+
+    def modifyDateString(_date):
+        date = _date[_date.find('-') + 1:]
+        # Remove padded zeros.
+        month, day = [ i[1:] if int(i) <= 9 else i for i in [date[:2], date[3:]] ]
+        return month + '/' + day
+
+    week_of_ = modifyDateString(row['StartDate']) + ' to ' + modifyDateString(row['EndDate'])
+
+    return week_of_
+
+
+
 def generateRawTotalsDfFromCsvs():
     """
     input:
@@ -405,14 +444,7 @@ def generateRawTotalsDfFromCsvs():
     sort_by, sort_asc = ['StartDate', 'ShippedMethod', 'CompanyID'], [False, True, True]
     raw_df_ = raw_df_.sort_values(by=sort_by, ascending=sort_asc)
 
-    # BLOCK ...  Convert columns 'StartDate' and 'EndDate' to 'week of'.
-    def modifyDateCols(row):
-        def modifyDateString(_date):
-            date = _date[_date.find('-') + 1:]
-            # Remove padded zeros.
-            month, day = [ i[1:] if int(i) <= 9 else i for i in [date[:2], date[3:]] ]
-            return month + '/' + day
-        return modifyDateString(row['StartDate']) + ' to ' + modifyDateString(row['EndDate'])
+    # Apply 'modifyDateCols()' to 'raw_df_'.
     raw_df_['week of'] = raw_df_.apply(modifyDateCols, axis='columns')
 
     # Rearrange (and drop) columns.
@@ -473,6 +505,56 @@ def convertRawDfToFinalTotalsDf(_raw_df):
 
 
 
+def buildFormat(_book):
+
+    global FORMAT
+
+    # Assign format dicts.
+    all_font_size = {'font_size': 12}
+    border_bold =   {'border': 2}
+    set_num_dec =   {'num_format': '0.00'}
+    avg_bgc =       {'bg_color': '#E0E0E0'}
+    all_values =    {**all_font_size, **{'align': 'center'}}
+    all_labels =    {**all_font_size, **border_bold}
+
+    # Build FORMAT.
+    FORMAT = {**FORMAT, **{
+        'merge':            _book.add_format({'align': 'center', 'valign': 'vcenter'}),
+        'all':              _book.add_format(all_font_size),
+        'values':           _book.add_format(all_values),
+        'val_right':        _book.add_format({**all_values, **{'right': 1, 'bold': True}}),
+        'val_bottom':       _book.add_format({**all_values, **{'bottom': 1}}),
+        'val_corner':       _book.add_format({
+            **all_values, **{'right': 1, 'bottom': 1, 'bold': True}
+        }),
+        'avg':              _book.add_format({**all_values, **set_num_dec, **avg_bgc}),
+        'avg_corner':       _book.add_format({
+            **all_values, **set_num_dec, **avg_bgc, **{'right': 1, 'bold': True}
+        }),
+        'dev':              _book.add_format({**all_values, **set_num_dec}),
+        'dev_corner':       _book.add_format({
+            **all_values, **set_num_dec, **{'right': 1, 'bold': True}
+        }),
+        'col_labels':       _book.add_format({**all_labels, **{'align': 'center', 'bold': True}}),
+        'comp_row':         _book.add_format({**all_labels, **{'align': 'center'}}),
+        'totals':           _book.add_format({**all_labels, **{'align': 'center', 'bold': True}}),
+        'labels_cell':      _book.add_format({**all_font_size, **border_bold}),
+        'weekof_col':       _book.add_format({
+            **all_labels, **{'align': 'center', 'valign': 'vcenter'}
+        }),
+        'labels_col':       _book.add_format(all_labels),
+        'totals_cell':      _book.add_format({
+            **all_labels, **{'align': 'center', 'valign': 'vcenter', 'bold': True}
+        }),
+        'avg_cell':         _book.add_format({**all_labels, **avg_bgc}),
+        'single_labels':    _book.add_format({**all_values, **border_bold}),
+        'single_avg_cell':  _book.add_format({**all_values, **border_bold, **{'bold': True}}),
+        'single_avg':       _book.add_format({**all_values, **set_num_dec, **{'bold': True}}),
+        'single_dev':       _book.add_format({**all_values, **set_num_dec}),
+    }}
+
+
+
 def buildTotalsSheet(_book, _df):
     """
     input:
@@ -480,11 +562,9 @@ def buildTotalsSheet(_book, _df):
     """
 
     # _book = xlsxwriter.Workbook(CSV_PATH + 'xlsx_output.xlsx')
-    sheet = _book.add_worksheet('totals')
+    sheet = _book.add_worksheet('TOTALS')
 
     """   perform merges   """
-
-    merge_format = _book.add_format({'align': 'center', 'valign': 'vcenter'})
 
     # Start to build container for looping through merge sets with TOTALS set.
     merges = [[0, 0, 1, 1, 'TOTALS']]
@@ -518,50 +598,19 @@ def buildTotalsSheet(_book, _df):
 
     # Loop through 'merges' to perform individual merges on 'sheet'.
     for start_row, start_col, end_row, end_col, value in merges:
-        sheet.merge_range(start_row, start_col, end_row, end_col, value, merge_format)
+        sheet.merge_range(start_row, start_col, end_row, end_col, value, FORMAT['merge'])
 
     """   apply formatting   """
 
     # Get sizes of '_df'.
     width, height = len(_df.columns), len(_df)
 
-    # Get lists referencing indexes of specific rows, cols (columns with 'TOTALS', rows with last
-    # row of each date block, and rows with 'average dtd').
+    # Get lists referencing indexes of specific rows and cols (rows with last row of each date
+    # block, rows with 'average dtd', and columns with 'TOTALS').
     label_row = _df['labels'].tolist()
     date_end_rows = [ i for i, label in enumerate(label_row) if label == UPDATED_TOTALS_VALUES[-1] ]
     average_rows = [ i for i, label in enumerate(label_row) if label == 'average dtd' ]
     totals_cols = [ i for i, value in enumerate(_df.loc[2].tolist()) if value == 'TOTALS' ]
-
-    # Assign format dicts.
-    all_font_size = {'font_size': 12}
-    border_bold =   {'border': 2}
-    set_num_dec =   {'num_format': '0.00'}
-    avg_bgc =       {'bg_color': '#E0E0E0'}
-    all_values =    {**all_font_size, **{'align': 'center'}}
-    all_labels =    {**all_font_size, **border_bold}
-
-    # Build formats.
-    all_f =            _book.add_format(all_font_size)
-    values_f =         _book.add_format(all_values)
-    val_right_f =      _book.add_format({**all_values, **{'right': 1, 'bold': True}})
-    val_bottom_f =     _book.add_format({**all_values, **{'bottom': 1}})
-    val_corner_f =     _book.add_format({**all_values, **{'right': 1, 'bottom': 1, 'bold': True}})
-    avg_f =            _book.add_format({**all_values, **set_num_dec, **avg_bgc})
-    avg_corner_f =     _book.add_format({
-                            **all_values, **set_num_dec, **avg_bgc, **{'right': 1, 'bold': True}
-                        })
-    dev_f =            _book.add_format({**all_values, **set_num_dec})
-    dev_corner_f =     _book.add_format({**all_values, **set_num_dec, **{'right': 1, 'bold': True}})
-    col_labels_f =     _book.add_format({**all_labels, **{'align': 'center', 'bold': True}})
-    comp_row_f =       _book.add_format({**all_labels, **{'align': 'center'}})
-    totals_f =         _book.add_format({**all_labels, **{'align': 'center', 'bold': True}})
-    labels_cell_f =    _book.add_format({**all_font_size, **border_bold})
-    weekof_col_f =     _book.add_format({**all_labels, **{'align': 'center', 'valign': 'vcenter'}})
-    labels_col_f =     _book.add_format(all_labels)
-    totals_cell_f =    _book.add_format({
-                            **all_labels, **{'align': 'center', 'valign': 'vcenter', 'bold': True}
-                        })
-    avg_cell_f =       _book.add_format({**all_labels, **avg_bgc})
 
     # Build 'format_assignments', a list-of-lists, where each sub list is in the format of
     # [list-of-rows, list-of-cols, format applied].  Each row in list-of-rows is compared to each
@@ -569,31 +618,31 @@ def buildTotalsSheet(_book, _df):
     # format.
     format_assignments = [
         # rows                              # cols              # format
-        [range(height)[3:],                 range(width)[2:],   values_f],
-        [range(height)[3:],                 totals_cols,        val_right_f],
-        [date_end_rows,                     range(width)[2:],   val_bottom_f],
-        [date_end_rows,                     totals_cols,        val_corner_f],
-        [average_rows,                      range(width)[2:],   avg_f],
-        [average_rows,                      totals_cols,        avg_corner_f],
-        [[ i + 1 for i in average_rows ],   range(width)[2:],   dev_f],
-        [[ i + 1 for i in average_rows ],   totals_cols,        dev_corner_f],
-        [[0, 1],                            range(width),       col_labels_f],
-        [[2],                               range(width),       comp_row_f],
-        [[2],                               totals_cols,        totals_f],
-        [range(height)[3:],                 [0],                weekof_col_f],
-        [range(height)[3:],                 [1],                labels_col_f],
-        [average_rows,                      [1],                avg_cell_f],
-        [[2],                               [1],                labels_cell_f],
+        [range(height)[3:],                 range(width)[2:],   'values'],
+        [range(height)[3:],                 totals_cols,        'val_right'],
+        [date_end_rows,                     range(width)[2:],   'val_bottom'],
+        [date_end_rows,                     totals_cols,        'val_corner'],
+        [average_rows,                      range(width)[2:],   'avg'],
+        [average_rows,                      totals_cols,        'avg_corner'],
+        [[ i + 1 for i in average_rows ],   range(width)[2:],   'dev'],
+        [[ i + 1 for i in average_rows ],   totals_cols,        'dev_corner'],
+        [[0, 1],                            range(width),       'col_labels'],
+        [[2],                               range(width),       'comp_row'],
+        [[2],                               totals_cols,        'totals'],
+        [range(height)[3:],                 [0],                'weekof_col'],
+        [range(height)[3:],                 [1],                'labels_col'],
+        [average_rows,                      [1],                'avg_cell'],
+        [[2],                               [1],                'labels_cell'],
     ]
 
     # Initial build of 'format_matrix'.
-    format_matrix = [ [ all_f for w in range(width) ] for h in range(height) ]
+    format_matrix = [ [ FORMAT['all'] for w in range(width) ] for h in range(height) ]
 
     # Update 'format_matrix' with each detailed assignment from 'format_assignments'.
     for assign_row, assign_col, assign_format in format_assignments:
         for row in assign_row:
             for col in assign_col:
-                format_matrix[row][col] = assign_format
+                format_matrix[row][col] = FORMAT[assign_format]
 
     # Application of values from '_df' and formatting from 'format_matrix' to 'sheet'.
     for row in range(height):
@@ -602,7 +651,7 @@ def buildTotalsSheet(_book, _df):
             sheet.write(row, col, row_list[col], format_matrix[row][col])
 
     # label 'TOTALS' cell value does not come from '_df', i.e. value is inserted manually.
-    sheet.write(0, 0, 'TOTALS', totals_cell_f)
+    sheet.write(0, 0, 'TOTALS', FORMAT['totals_cell'])
 
     # Column width adjustments.
     weekof_colw =   16
@@ -614,7 +663,6 @@ def buildTotalsSheet(_book, _df):
     for col in range(width)[2:]:  sheet.set_column(col, col, comps_colw)
     for col in totals_cols:  sheet.set_column(col, col, totals_colw)
 
-    # Set freeze panes and close _book.
     sheet.freeze_panes(3, 2)
 
     return _book
@@ -622,25 +670,101 @@ def buildTotalsSheet(_book, _df):
 
 
 def getSingleTabName(_single_csv):
+    """ Return 'tab_name_', string derived from name of associated csv.  """
 
-    first_uscore_i = _single_csv.find('_')
-    company_id = int(_single_csv[:first_uscore_i])
-    print(company_id)
-    exit()
+    uscore1 = _single_csv.find('_')
+    company_name = getCompanyName(int(_single_csv[:uscore1]))
+    if company_name == 'Michael Hyatt and Company':  company_name = 'Michael Hyatt & Co'
+    uscore2 = _single_csv[uscore1 + 1:].find('_')
+    shipped_method = _single_csv[ uscore1 + 1 : uscore1 + uscore2 + 1 ]
+
+    tab_name_ = '{}-{}'.format(company_name, shipped_method).replace(' ', '')
 
     return tab_name_
 
 
 
-def buildSingleSheet(_book, _single_csv):
+def convertRawDfToFinalSingleDf(_raw_df):
+    """
+    input:
+    output:
+    """
 
-    print(_single_csv)
 
-    tab_name = getSingleTabName(_single_csv)
+    # Reorder by date descending.
+    _raw_df = _raw_df.sort_values(by='StartDate', ascending=False)
+    # Get 'company_name' and 'shipped_method' before columns are dropped.
+    company_name = getCompanyName(_raw_df.at[0, 'CompanyID'])
+    shipped_method = _raw_df.at[0, 'ShippedMethod']
+    # Convert 'StartDate' and 'EndDate' to 'WeekOf'.
+    _raw_df['WeekOf'] = _raw_df.apply(modifyDateCols, axis='columns')
 
-    exit()
+    # Drop, rearrange, and rename columns.
+    _raw_df = _raw_df.drop(['StartDate', 'EndDate'], axis='columns')
+    cols = _raw_df.columns.tolist()
+    _raw_df = _raw_df[[cols[-1]] + [cols[2]] + cols[-3:-1] + cols[4:-3] + [cols[3]]]
+    _raw_df = _raw_df.rename(columns=UPDATED_SINGLES_COL_VALUES)
 
-    sheet = _book.add_worksheet()
+    # Insert title header and column headers as first two rows.
+    for i, v in enumerate(['col', company_name + ' - ' + shipped_method]):
+        cols = { col: v if v != 'col' else col for col in _raw_df.columns.tolist() }
+        _raw_df = _raw_df.append(pandas.DataFrame(cols, index=[-i - 1]), ignore_index=False)
+    _raw_df = _raw_df.sort_index().reset_index(drop=True)
+
+    return _raw_df
+
+
+
+def generateSingleSheet(_book, _df, _csv_name):
+
+    print(_df)
+
+    sheet = _book.add_worksheet(getSingleTabName(_csv_name))
+
+    # Get '_df' priority indexing.
+    cols = _df.columns.tolist()
+    width, height = len(cols), len(_df)
+    avg_col = cols.index(UPDATED_SINGLES_COL_VALUES['Mean'])
+    dev_col = cols.index(UPDATED_SINGLES_COL_VALUES['StDev'])
+
+    # Single merge.
+    sheet.merge_range(0, 0, 0, width - 1, _df.at[0, 'WeekOf'], FORMAT['merge'])
+
+    format_assignments = [
+        # row               # col           # format
+        [[0],               range(width),   'col_labels'],
+        [[1],               range(width),   'single_labels'],
+        [[1],               [avg_col],      'single_avg_cell'],
+        [range(height)[2:], [0],            'single_labels'],
+        [range(height)[2:], [avg_col],      'single_avg'],
+        [range(height)[2:], [dev_col],      'single_dev'],
+    ]
+
+    # Initial build of 'format_matrix'.
+    format_matrix = [ [ FORMAT['values'] for w in range(width) ] for h in range(height) ]
+
+    # Update 'format_matrix' with each detailed assignment from 'format_assignments'.
+    for assign_row, assign_col, assign_format in format_assignments:
+        for row in assign_row:
+            for col in assign_col:
+                format_matrix[row][col] = FORMAT[assign_format]
+
+    # Application of values from '_df' and formatting from 'format_matrix' to 'sheet'.
+    for row in range(height):
+        row_list = _df.loc[row].tolist()
+        for col in range(width):
+            sheet.write(row, col, row_list[col], format_matrix[row][col])
+
+    col_width_assignments = [
+        [[0], 18], # WeekOf
+        [[1, 2, 3], 14], # TotalPackages, AverageDTD, Deviation
+        [range(width)[4:-1], 8], # Days
+        [[width - 1], 18], # NotDelivered
+    ]
+    for cols, width in col_width_assignments:
+        for col in cols:  sheet.set_column(col, col, width)
+
+    sheet.freeze_panes(2, 0)
 
     return _book
 
