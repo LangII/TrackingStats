@@ -189,8 +189,10 @@ def main():
     print("\n>>> building totals xlsx sheet")
     book = buildTotalsSheet(book, final_totals_df)
 
+    single_csvs_by_tab = getTabOrder(SINGLE_CSVS, final_totals_df.columns.tolist())
+
     print("\n>>> generate single company tabs in xlsx output")
-    for single_csv_name in [SINGLE_CSVS[0]]:
+    for single_csv_name in single_csvs_by_tab:
 
         print("\n>>> retrieve saved company csv and convert to final dataframe format")
         raw_df = pandas.read_csv(CSV_PATH + single_csv_name, encoding='ISO-8859-1')
@@ -198,8 +200,6 @@ def main():
 
         print("\n>>> convert final company dataframe to styled xlsx tab")
         book = generateSingleSheet(book, single_df, single_csv_name)
-
-        # exit()
 
     print("\n\n\n>>> FINISHED generating single xlsx company tabs")
 
@@ -444,6 +444,7 @@ def generateRawTotalsDfFromCsvs():
     sort_by, sort_asc = ['StartDate', 'ShippedMethod', 'CompanyID'], [False, True, True]
     raw_df_ = raw_df_.sort_values(by=sort_by, ascending=sort_asc)
 
+
     # Apply 'modifyDateCols()' to 'raw_df_'.
     raw_df_['week of'] = raw_df_.apply(modifyDateCols, axis='columns')
 
@@ -678,9 +679,35 @@ def getSingleTabName(_single_csv):
     uscore2 = _single_csv[uscore1 + 1:].find('_')
     shipped_method = _single_csv[ uscore1 + 1 : uscore1 + uscore2 + 1 ]
 
+    # Format 'tab_name_' from 'company_name' and 'shipped_method', then trim if too long.
     tab_name_ = '{}-{}'.format(company_name, shipped_method).replace(' ', '')
+    if len(tab_name_) > 31:  tab_name_ = tab_name_[:28] + '...'
 
     return tab_name_
+
+
+
+def getTabOrder(_csvs, _df_cols):
+    """
+    input:
+    output:
+    """
+
+    tab_order_ = []
+    for col in _df_cols:
+        # Ignore cols with numbers in them.
+        if all([ not char.isdigit() for char in col ]):  continue
+
+        # Get and modify 'ship_meth' and 'comp_id' from 'col'.
+        ship_meth, comp_id = [ each.strip() for each in col.split('-') ]
+        ship_meth = ''.join([ word.lower().title() for word in ship_meth.split() ])
+        comp_id = str(int(comp_id))
+
+        # Pull 'csv' from '_csvs' by comparison to 'comp_id' and 'ship_meth'.
+        for csv in _csvs:
+            if csv.startswith(comp_id + '_' + ship_meth):  tab_order_ += [csv]
+
+    return tab_order_
 
 
 
@@ -692,7 +719,8 @@ def convertRawDfToFinalSingleDf(_raw_df):
 
 
     # Reorder by date descending.
-    _raw_df = _raw_df.sort_values(by='StartDate', ascending=False)
+    _raw_df = _raw_df.sort_values(by='StartDate', ascending=False).reset_index(drop=True)
+
     # Get 'company_name' and 'shipped_method' before columns are dropped.
     company_name = getCompanyName(_raw_df.at[0, 'CompanyID'])
     shipped_method = _raw_df.at[0, 'ShippedMethod']
@@ -756,10 +784,11 @@ def generateSingleSheet(_book, _df, _csv_name):
             sheet.write(row, col, row_list[col], format_matrix[row][col])
 
     col_width_assignments = [
-        [[0], 18], # WeekOf
-        [[1, 2, 3], 14], # TotalPackages, AverageDTD, Deviation
-        [range(width)[4:-1], 8], # Days
-        [[width - 1], 18], # NotDelivered
+        # cols                  # width
+        [[0],                   18],    # WeekOf
+        [[1, 2, 3],             14],    # TotalPackages, AverageDTD, Deviation
+        [range(width)[4:-1],    8],     # Days
+        [[width - 1],           18],    # NotDelivered
     ]
     for cols, width in col_width_assignments:
         for col in cols:  sheet.set_column(col, col, width)
