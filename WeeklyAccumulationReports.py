@@ -145,13 +145,10 @@ def main():
         print("\n>>> 'single_df' print out ...\n")
         print(single_df)
 
-        # if not MULTIPLE_DATES:
         print("\n>>> adding single dataframe to collection")
         collected_dfs += [single_df]
 
     print("\n\n\n>>> FINISHED collecting single dataframes")
-
-    # if not MULTIPLE_DATES:
 
     print("\n\n\n>>> concatenating collected dataframes")
     collection_df = pandas.concat(collected_dfs, ignore_index=True)
@@ -167,9 +164,6 @@ def main():
 
     print("\n>>> dropping and reordering columns for combined dataframe")
     with_totals_df = with_totals_df[TOTALS_COLS]
-
-    # print("\n>>> 'with_totals_df' print out ...\n")
-    # print(with_totals_df)
 
     print("\n>>> saving with totals dataframe to csv")
     saveDfToCsv(with_totals_df, type='totals')
@@ -314,7 +308,8 @@ def saveDfToCsv(_df, type='single'):
 
 def updateDfWithMeanAndStDev(_df):
     """
-    input:  _df = Dataframe from 'convertStatsToDf()'.
+    input:  constants = STATS_COLS, MAX_FREQ
+            _df = Dataframe from 'convertStatsToDf()'.
     output: Return dataframe with additional calculated rows of 'Mean' and 'StDev'.
     """
 
@@ -412,7 +407,7 @@ def getCompanyName(_id):
 
 
 def modifyDateCols(row):
-    """ Return 'week_of', convert value from 'StartDate' and 'EndDate' into 'week of' value. """
+    """ Return 'week_of_', convert value from 'StartDate' and 'EndDate' into 'week of' value. """
 
     def modifyDateString(_date):
         date = _date[_date.find('-') + 1:]
@@ -428,8 +423,9 @@ def modifyDateCols(row):
 
 def generateRawTotalsDfFromCsvs():
     """
-    input:
-    output:
+    input:  constants = CSV_PATH, CSV_NAMES
+    output: Return 'raw_df_', dataframe object of data converted from CSV_NAMES['totals'].  Minor
+            adjustments made to table like sorts and drops.
     """
 
     # Get accumulated totals dataframe.
@@ -443,7 +439,6 @@ def generateRawTotalsDfFromCsvs():
     # Sort 'raw_df_' with parallel arrays 'sort_by' and 'sort_asc'.
     sort_by, sort_asc = ['StartDate', 'ShippedMethod', 'CompanyID'], [False, True, True]
     raw_df_ = raw_df_.sort_values(by=sort_by, ascending=sort_asc)
-
 
     # Apply 'modifyDateCols()' to 'raw_df_'.
     raw_df_['week of'] = raw_df_.apply(modifyDateCols, axis='columns')
@@ -459,8 +454,9 @@ def generateRawTotalsDfFromCsvs():
 
 def convertRawDfToFinalTotalsDf(_raw_df):
     """
-    input:
-    output:
+    input:  constants = TOTALS_PREFIX_HEADERS, UPDATED_TOTALS_VALUES, TOTALS_VALUES
+            _raw_df = Dataframe object from generateRawTotalsDfFromCsvs().
+    output: Return 'totals_df_', dataframe object from '_raw_df' with modifications.
     """
 
     # Get list of dates.
@@ -507,6 +503,11 @@ def convertRawDfToFinalTotalsDf(_raw_df):
 
 
 def buildFormat(_book):
+    """
+    input:  constants = FORMAT
+            _book = xlsxwriter Workbook object, needed for building formats with 'add_format()'.
+    output: Globalized formats added to FORMAT.
+    """
 
     global FORMAT
 
@@ -558,8 +559,11 @@ def buildFormat(_book):
 
 def buildTotalsSheet(_book, _df):
     """
-    input:
-    output:
+    input:  constants = UPDATED_TOTALS_VALUES, FORMAT
+            _book = Workbook object for writing to final xlsx.
+            _df = Dataframe object with data to be written to 'sheet'.
+    output: Return '_book', original Workbook object from input '_book' but with Worksheet object
+            'sheet' added.
     """
 
     # _book = xlsxwriter.Workbook(CSV_PATH + 'xlsx_output.xlsx')
@@ -654,7 +658,7 @@ def buildTotalsSheet(_book, _df):
     # label 'TOTALS' cell value does not come from '_df', i.e. value is inserted manually.
     sheet.write(0, 0, 'TOTALS', FORMAT['totals_cell'])
 
-    # Column width adjustments.
+    # Column width adjustments, then apply freeze panes.
     weekof_colw =   16
     labels_colw =   20
     comps_colw =    20
@@ -663,7 +667,6 @@ def buildTotalsSheet(_book, _df):
     sheet.set_column(1, 1, labels_colw)
     for col in range(width)[2:]:  sheet.set_column(col, col, comps_colw)
     for col in totals_cols:  sheet.set_column(col, col, totals_colw)
-
     sheet.freeze_panes(3, 2)
 
     return _book
@@ -689,8 +692,9 @@ def getSingleTabName(_single_csv):
 
 def getTabOrder(_csvs, _df_cols):
     """
-    input:
-    output:
+    input:  _csvs = List of strings, each represents a saved csv name.
+            _df_cols = List of strings, each represents a column from 'totals_df'.
+    output: Return 'tab_order_', list of '_csvs' but ordered by '_df_cols'.
     """
 
     tab_order_ = []
@@ -713,10 +717,11 @@ def getTabOrder(_csvs, _df_cols):
 
 def convertRawDfToFinalSingleDf(_raw_df):
     """
-    input:
-    output:
+    input:  constants = UPDATED_SINGLES_COL_VALUES
+            _raw_df = Dataframe object direct from single csv save file.
+    output: Return 'final_single_df_', data from '_raw_df' gets reordered, updated, dropped, etc as
+            final output.
     """
-
 
     # Reorder by date descending.
     _raw_df = _raw_df.sort_values(by='StartDate', ascending=False).reset_index(drop=True)
@@ -737,15 +742,21 @@ def convertRawDfToFinalSingleDf(_raw_df):
     for i, v in enumerate(['col', company_name + ' - ' + shipped_method]):
         cols = { col: v if v != 'col' else col for col in _raw_df.columns.tolist() }
         _raw_df = _raw_df.append(pandas.DataFrame(cols, index=[-i - 1]), ignore_index=False)
-    _raw_df = _raw_df.sort_index().reset_index(drop=True)
+    final_single_df_ = _raw_df.sort_index().reset_index(drop=True)
 
-    return _raw_df
+    return final_single_df_
 
 
 
 def generateSingleSheet(_book, _df, _csv_name):
-
-    print(_df)
+    """
+    input:  constants = UPDATED_SINGLES_COL_VALUES, FORMAT
+            _book = Workbook object for writing to final xlsx.
+            _df = Dataframe object with data to be written to 'sheet'.
+            _csv_name = String representing csv name, used to get tab name for single sheet.
+    output: Return '_book', original Workbook object from input '_book' but with Worksheet object
+            'sheet' added.
+    """
 
     sheet = _book.add_worksheet(getSingleTabName(_csv_name))
 
@@ -776,13 +787,13 @@ def generateSingleSheet(_book, _df, _csv_name):
         for row in assign_row:
             for col in assign_col:
                 format_matrix[row][col] = FORMAT[assign_format]
-
     # Application of values from '_df' and formatting from 'format_matrix' to 'sheet'.
     for row in range(height):
         row_list = _df.loc[row].tolist()
         for col in range(width):
             sheet.write(row, col, row_list[col], format_matrix[row][col])
 
+    # Update to column widths, then apply freeze panes..
     col_width_assignments = [
         # cols                  # width
         [[0],                   18],    # WeekOf
@@ -792,7 +803,6 @@ def generateSingleSheet(_book, _df, _csv_name):
     ]
     for cols, width in col_width_assignments:
         for col in cols:  sheet.set_column(col, col, width)
-
     sheet.freeze_panes(2, 0)
 
     return _book

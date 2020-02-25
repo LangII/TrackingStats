@@ -315,39 +315,6 @@ def getSingleUpsHistory(_tracking_number):
                                                                           ###   METHODS / USPS   ###
                                                                           ##########################
 
-""" obsolete 2020-02-12 """
-# def getSingleUspsJson(_tracking_number):
-#     """
-#     input:  constants = USPS_REQUEST_ATTEMPTS, USPS_USER_ID, USPS_REQUEST_DELAY
-#             _tracking_number = USPS tracking number to be sent to USPS API to recover tracking data.
-#     output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
-#     """
-#
-#     # (garbage-in fix) USPS API does not throw errors from empty tracking numbers, it will just
-#     # timeout.  This auto generates a USPS API formatted error response.
-#     if not _tracking_number:
-#         return {'TrackResponse': {'TrackInfo': {'Error': {'Description': 'no tracking number'}}}}
-#
-#     usps_data_ = {}
-#     for i in range(USPS_REQUEST_ATTEMPTS):
-#         try:
-#             usps = USPSApi(USPS_USER_ID)
-#             usps_data_ = usps.track(_tracking_number).result
-#             break
-#         except:
-#             print("\n>>> Exception ... Trying again ...\n")
-#             time.sleep(5)
-#             continue
-#
-#     # If too many request exceptions, give error message in working return json format.
-#     if not usps_data_:  exit("\n>>> ERROR:  Too many request exceptions ... \\_(**)_/\n")
-#
-#     time.sleep(USPS_REQUEST_DELAY)
-#
-#     return usps_data_
-
-
-
 def getSingleUspsJson(_tracking_number):
     """
     input:  constants = USPS_USER_ID, USPS_REQUEST_DELAY
@@ -484,24 +451,26 @@ def getSingleUspsHistory(_tracking_number):
                                                                            ###   METHODS / DHL   ###
                                                                            #########################
 
+def getDhlKey():
+   """ Return 'key_', string of access key through DHL API prerequest. """
+
+   # Build variables for get request.
+   headers = {'Content-Type': 'application/json'}
+   parameters = {'username': DHL_USERNAME, 'password': DHL_PASSWORD}
+   url = 'https://api.dhlglobalmail.com/v1/auth/access_token/'
+   # Perform request and filter to return 'key_'.
+   key_ = requests.get(url, headers=headers, params=parameters, timeout=5).json()
+   key_ = key_['data']['access_token']
+
+   return key_
+
+
+
 def getSingleDhlJson(_tracking_number):
     """
     input:  _tracking_number = DHL tracking number to be sent to DHL API to recover tracking data.
     output: Return json 'dhl_data_', of response from DHL API for input '_tracking_number'.
     """
-
-    def getDhlKey():
-        """ subroutine:  Get access key through DHL API prerequest. """
-
-        # Build variables for get request.
-        headers = {'Content-Type': 'application/json'}
-        parameters = {'username': DHL_USERNAME, 'password': DHL_PASSWORD}
-        url = 'https://api.dhlglobalmail.com/v1/auth/access_token/'
-        # Perform request and filter to return 'key_'.
-        key_ = requests.get(url, headers=headers, params=parameters, timeout=5).json()
-        key_ = key_['data']['access_token']
-
-        return key_
 
     dhl_data_ = {}
     for i in range(DHL_REQUEST_ATTEMPTS):
@@ -524,6 +493,38 @@ def getSingleDhlJson(_tracking_number):
     time.sleep(DHL_REQUEST_DELAY)
 
     return dhl_data_
+
+
+# 
+# def getBatchDhlVitals(_batch):
+#
+#     dhl_data_ = {}
+#
+#     parameters = {'access_token': getDhlKey(), 'client_id': DHL_CLIENT_ID, 'number': _batch}
+#     url = 'https://api.dhlglobalmail.com/v2/mailitems/track'
+#
+#     response = requests.get(url, params=parameters, timeout=5)
+#
+#     raw_json = response.json()
+#
+#     print(json.dumps(raw_json, indent=4, sort_keys=True))
+#     exit()
+#
+#     return dhl_data_
+#
+#
+#
+# track_nums = [
+#     'GM545316189002214877',     'GM545316189002215993',
+#     'GM545316189002201388',     '9274890223353708678517',
+#     'GM545316189002154137',     'GM545316189002125038',
+#     '9274890223353708497668',   '9274890223353708330163',
+#     'GM545316189002047643',     'GM545316189002046323'
+# ]
+#
+# dhl_data = getBatchDhlVitals(track_nums)
+# for data in dhl_data:  print(data)
+# exit()
 
 
 
@@ -751,41 +752,38 @@ def getSingleFedExVitals(_tracking_number):
                                                                                      ###   OLD   ###
                                                                                      ###############
 
-""" obsolete 2019-12-26 """
-def getSingleUspsJson(_tracking_number):
-    """
-    input:  constants = USPS_USER_ID, USPS_REQUEST_DELAY
-            _tracking_number = SUPS tracking number to be sent to USPS API to recover tracking data.
-    output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
-    """
+""" obsolete 2020-02-12 """
+# def getSingleUspsJson(_tracking_number):
+#     """
+#     input:  constants = USPS_REQUEST_ATTEMPTS, USPS_USER_ID, USPS_REQUEST_DELAY
+#             _tracking_number = USPS tracking number to be sent to USPS API to recover tracking data.
+#     output: Return json 'usps_data_', of response from USPS API for input '_tracking_number'.
+#     """
+#
+#     # (garbage-in fix) USPS API does not throw errors from empty tracking numbers, it will just
+#     # timeout.  This auto generates a USPS API formatted error response.
+#     if not _tracking_number:
+#         return {'TrackResponse': {'TrackInfo': {'Error': {'Description': 'no tracking number'}}}}
+#
+#     usps_data_ = {}
+#     for i in range(USPS_REQUEST_ATTEMPTS):
+#         try:
+#             usps = USPSApi(USPS_USER_ID)
+#             usps_data_ = usps.track(_tracking_number).result
+#             break
+#         except:
+#             print("\n>>> Exception ... Trying again ...\n")
+#             time.sleep(5)
+#             continue
+#
+#     # If too many request exceptions, give error message in working return json format.
+#     if not usps_data_:  exit("\n>>> ERROR:  Too many request exceptions ... \\_(**)_/\n")
+#
+#     time.sleep(USPS_REQUEST_DELAY)
+#
+#     return usps_data_
 
-    url = 'http://production.shippingapis.com/ShippingAPI.dll'
-    xml = """
-        <? xml version="1.0" encoding="UTF-8" ?>
-        <TrackFieldRequest USERID="{}">
-            <TrackID ID="{}"></TrackID>
-        </TrackFieldRequest>
-    """.format(USPS_USER_ID, _tracking_number)
-    parameters = {'API': 'TrackV2', 'XML': xml}
 
-    # Attempt to connect with USPS API.  With a 3 second timeout window, if 5 attempts are made
-    # resulting in timeouts or connection errors then the program exits.
-    attempts = 0
-    time.sleep(USPS_REQUEST_DELAY)
-    try:
-        response = requests.get(url, params=parameters, timeout=3).text
-    # except (requests.exceptions.ConnectTimeout, ConnectionError, requests.exceptions.ReadTimeout):
-    except:
-        attempts += 1
-        if attempts == 5:
-            exit(">>> too many timeouts, something's wrong, exiting program...")
-        print("\n>>> connection error, trying again...\n")
-        time.sleep(3)
-        response = requests.get(url, params=parameters, timeout=3).text
-    # Convert 'xml' to 'json'.
-    usps_data_ = json.loads(json.dumps(xmltodict.parse(response)))
-
-    return usps_data_
 
 # print(json.dumps(getSingleUspsJson('9449009205987503503051'), indent=4, sort_keys=True))
 

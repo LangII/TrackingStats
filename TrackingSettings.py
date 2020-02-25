@@ -23,41 +23,61 @@ NOTES:
 update_tracking_series = [
     {
         'company_id': 507, 'shipped_method': 'USPS Media Mail', 'days_ago': 30, 'start_date': '',
-        'end_date': ''
+        'end_date': '', 'batch': False
     },
     {
         'company_id': 735, 'shipped_method': 'USPS Media Mail', 'days_ago': 30, 'start_date': '',
-        'end_date': ''
+        'end_date': '', 'batch': False
     },
     {
         'company_id': 1232, 'shipped_method': 'USPS Media Mail', 'days_ago': 30, 'start_date': '',
-        'end_date': ''
+        'end_date': '', 'batch': False
     },
     {
         'company_id': 1899, 'shipped_method': 'UPS MI BPM', 'days_ago': 30, 'start_date': '',
-        'end_date': ''
+        'end_date': '', 'batch': False
     },
     {
         'company_id': 1584, 'shipped_method': 'UPS MI Dom', 'days_ago': 30, 'start_date': '',
-        'end_date': ''
+        'end_date': '', 'batch': False
     },
     {
         'company_id': 1236, 'shipped_method': 'UPS MI Dom', 'days_ago': 30, 'start_date': '',
-        'end_date': ''
+        'end_date': '', 'batch': False
     },
     {
         'company_id': 752, 'shipped_method': 'UPS MI Dom', 'days_ago': 30, 'start_date': '',
-        'end_date': ''
+        'end_date': '', 'batch': False
     },
     {
         'company_id': 816, 'shipped_method': 'USPS Priority', 'days_ago': 30, 'start_date': '',
-        'end_date': ''
+        'end_date': '', 'batch': False
     },
     {
         'company_id': 1899, 'shipped_method': 'UPS MI Parcel Select', 'days_ago': 30,
-        'start_date': '', 'end_date': ''
+        'start_date': '', 'end_date': '', 'batch': False
     },
 ]
+    # {
+    #     'company_id': 337, 'shipped_method': 'DHL SmartMail Parcel Expedited', 'days_ago': 30,
+    #     'start_date': '', 'end_date': '', 'batch': False
+    # },
+    # {
+    #     'company_id': 337, 'shipped_method': 'DHL SmartMail Parcel Plus Expedited', 'days_ago': 30,
+    #     'start_date': '', 'end_date': '', 'batch': False
+    # },
+    # {
+    #     'company_id': 1307, 'shipped_method': 'DHL SmartMail Parcel Expedited', 'days_ago': 30,
+    #     'start_date': '', 'end_date': '', 'batch': False
+    # },
+    # {
+    #     'company_id': 1307, 'shipped_method': 'DHL SmartMail Parcel Plus Expedited', 'days_ago': 30,
+    #     'start_date': '', 'end_date': '', 'batch': False
+    # },
+    # {
+    #     'company_id': 1560, 'shipped_method': 'DHL SmartMail Parcel Expedited', 'days_ago': 30,
+    #     'start_date': '', 'end_date': '', 'batch': False
+    # },
 
 
 
@@ -206,38 +226,38 @@ NOTES:
 weekly_accumulation_report_series = [
     {
         'company_id': 507, 'shipped_method': 'USPS Media Mail', 'date_range_type': 'week',
-        'max_freq': 14, 'start_date': '2020-01-05'
+        'max_freq': 14, 'start_date': ''
     },
     {
         'company_id': 735, 'shipped_method': 'USPS Media Mail', 'date_range_type': 'week',
-        'max_freq': 14, 'start_date': '2020-01-05'
+        'max_freq': 14, 'start_date': ''
     },
     {
         'company_id': 1232, 'shipped_method': 'USPS Media Mail', 'date_range_type': 'week',
-        'max_freq': 14, 'start_date': '2020-01-05'
+        'max_freq': 14, 'start_date': ''
     },
     {
         'company_id': 1899, 'shipped_method': 'UPS MI BPM', 'date_range_type': 'week',
-        'max_freq': 14, 'start_date': '2020-01-05'
+        'max_freq': 14, 'start_date': ''
     },
     {
         'company_id': 1584, 'shipped_method': 'UPS MI Dom', 'date_range_type': 'week',
-        'max_freq': 14, 'start_date': '2020-01-05'
+        'max_freq': 14, 'start_date': ''
     },
     {
         'company_id': 1236, 'shipped_method': 'UPS MI Dom', 'date_range_type': 'week',
-        'max_freq': 14, 'start_date': '2020-01-05'
+        'max_freq': 14, 'start_date': ''
     },
     {
         'company_id': 752, 'shipped_method': 'UPS MI Dom', 'date_range_type': 'week',
-        'max_freq': 14, 'start_date': '2020-01-05'
+        'max_freq': 14, 'start_date': ''
     },
     {
         'company_id': 816, 'shipped_method': 'USPS Priority', 'date_range_type': 'week',
-        'max_freq': 14, 'start_date': '2020-01-05'
+        'max_freq': 14, 'start_date': ''
     },
     {
         'company_id': 1899, 'shipped_method': 'UPS MI Parcel Select', 'date_range_type': 'week',
-        'max_freq': 14, 'start_date': '2020-01-05'
+        'max_freq': 14, 'start_date': ''
     },
 ]
