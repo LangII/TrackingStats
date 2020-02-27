@@ -70,7 +70,7 @@ TOTALS_COLS = [
     'StDev', 'DaysMaxFreqPlus'
 ]
 
-PERFORM_CSV_SAVES = False
+PERFORM_CSV_SAVES = True
 ONE_OFF_CSV_NAME_SUFFIX = ''
 
 CSV_NAMES = {'singles': [], 'totals': ''}
@@ -332,6 +332,9 @@ def updateDfWithMeanAndStDev(_df):
         else:
             one_dim_array = [0, 0]
 
+        # Patch for freak occurence of there only being a single package worth of data.
+        if len(one_dim_array) == 1:  one_dim_array += one_dim_array
+
         # Calculate 'Mean' and 'StDev' and add to dataframe.
         row['Mean'] = round(statistics.mean(one_dim_array), 2)
         row['StDev'] = round(statistics.stdev(one_dim_array), 2)
@@ -489,8 +492,10 @@ def convertRawDfToFinalTotalsDf(_raw_df):
     company_names = [ getCompanyName(int(c)) if c.isdigit() else c for c in companies ]
     df_cols = totals_df_.columns.tolist()
     for i, name in enumerate(company_names):  totals_df_.at[2, df_cols[i]] = name
+    print(name)
     for i, name in enumerate(totals_df_.iloc[2].tolist()):
         if name == 'Michael Hyatt and Company':  totals_df_.at[2, df_cols[i]] = 'Michael Hyatt & Co'
+        if name == 'The Healthy Back Institute':  totals_df_.at[2, df_cols[i]] = 'Healthy Back'
 
     # Replace 'labels' with more readable 'labels'.
     labels, new_labels = totals_df_['labels'].tolist(), []
@@ -678,9 +683,13 @@ def getSingleTabName(_single_csv):
 
     uscore1 = _single_csv.find('_')
     company_name = getCompanyName(int(_single_csv[:uscore1]))
-    if company_name == 'Michael Hyatt and Company':  company_name = 'Michael Hyatt & Co'
     uscore2 = _single_csv[uscore1 + 1:].find('_')
     shipped_method = _single_csv[ uscore1 + 1 : uscore1 + uscore2 + 1 ]
+
+    if company_name == 'Michael Hyatt and Company':  company_name = 'MichaelHyatt&Co'
+    elif company_name == 'The Healthy Back Institute':  company_name = 'HealthyBack'
+    if shipped_method == 'DhlSmartmailParcelExpedited':  shipped_method = 'DHLExpedited'
+    elif shipped_method == 'DhlSmartmailParcelPlusExpedited':  shipped_method = 'DHLPlusExpedited'
 
     # Format 'tab_name_' from 'company_name' and 'shipped_method', then trim if too long.
     tab_name_ = '{}-{}'.format(company_name, shipped_method).replace(' ', '')

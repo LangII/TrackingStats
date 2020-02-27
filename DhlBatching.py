@@ -1,7 +1,7 @@
 
 """
 
-This is sort of legacy.  I wrote it within just a couple months of being here...
+This script is sort of legacy.  I wrote it within just a couple months of being here...
 Proceed with caution.
 - David
 
@@ -13,6 +13,7 @@ import TrackingCredentials as cred
 import Tracking
 import requests
 from Required import Connections
+import time
 
 DHL_CLIENT_ID = cred.DHL_CLIENT_ID
 
@@ -118,6 +119,16 @@ def getDhlData(batch):
         # Get 'shipping_id' from 'raw_data'.
         each_dhl_data['shipping_id'] = batch[each_dhl_data['tracking_num']]
 
+        # BLOCK ...  Patch when implemented into 'TrackingStats'.  DL (2020-02-26)
+        # Minor adjustment, remove commas from 'message'.
+        each_dhl_data['message'] = each_dhl_data['message'].replace(',', '')
+        # Get 'delivered' from 'raw_data'.
+        if each['events'][0]['description'] == 'DELIVERED':     each_dhl_data['delivered'] = 'Y'
+        else:                                                   each_dhl_data['delivered'] = 'N'
+
+        # print(each_dhl_data)
+        # exit()
+
         dhl_data.append(each_dhl_data)
 
     return dhl_data
@@ -136,13 +147,14 @@ def updateDatabase(dhl_data, company_id, single=False):
 
     # Initial query determining what columns to update on what table and what to do with duplicate entries.
     sql =   """
-            INSERT INTO tblArrival (PackageShipmentID, TrackingNumber, MessageTimestamp, Message, CompanyID)
+            INSERT INTO tblArrival (PackageShipmentID, TrackingNumber, MessageTimestamp, Message, CompanyID, Delivered)
                 VALUES {}
 
             ON DUPLICATE KEY UPDATE
                 Message = VALUES(Message),
                 LastChecked = NOW(),
-                MessageTimestamp = VALUES(MessageTimestamp)
+                MessageTimestamp = VALUES(MessageTimestamp),
+                Delivered = VALUES(Delivered)
             """
     # Initiate variable used to build values to be inserted into table.
     insert = ""
@@ -150,12 +162,12 @@ def updateDatabase(dhl_data, company_id, single=False):
     note_list = []
     for index, each in enumerate(dhl_data):
         # Pack data from each 'dhl_data' entry to be formatted into the 'insert' string.
-        a, b, c, d, e = each['shipping_id'], each['tracking_num'], each['time_stamp'], each['message'], company_id
+        a, b, c, d, e, f = each['shipping_id'], each['tracking_num'], each['time_stamp'], each['message'], company_id, each['delivered']
         # Compiling notes.
         note_list.append(b.ljust(22))
         # if/else statements used to insert comma at the end of each entry except for the last entry.
-        if index != len(dhl_data) - 1:  insert += "('{}', '{}', '{}', '{}', '{}'),".format(a, b, c, d, e)
-        else: insert += "('{}', '{}', '{}', '{}', '{}')".format(a, b, c, d, e)
+        if index != len(dhl_data) - 1:  insert += "('{}', '{}', '{}', '{}', '{}', '{}'),".format(a, b, c, d, e, f)
+        else: insert += "('{}', '{}', '{}', '{}', '{}', '{}')".format(a, b, c, d, e, f)
 
     sql = sql.format(insert)
 
@@ -177,6 +189,53 @@ def updateDatabase(dhl_data, company_id, single=False):
         print("  >>>                 ", note_list[6], note_list[7])
         print("  >>>                 ", note_list[8], note_list[9], "\n")
     else:  print("  >>>  single processed:", note_list[0], "\n")
+
+
+
+def singleProcessing(disk_data):
+    """
+    input:  disk_data = Left over disk data from 'batchProcessing()', now to be processed individually.
+    output: Return 'disk_data', dict of disk data not processing.
+    """
+    global exceptions
+    processed = []
+
+    for index, each in enumerate(disk_data):
+        single = {}
+        single[each] = disk_data[each]
+
+        # Compiler notes.
+        print("  >>>  processing", index + 1, "of", len(disk_data), "singles ...")
+
+        ###################################################################
+        ###   \/   FUNCTION CALLS AND DATA PROCESSING PER SINGLE   \/   ###
+        ##                                                               ##
+
+        dhl_data = getDhlData(single)
+
+        # Check to see if 'getDhlData()' request threw an exception.  If so, collect batch tracking numbers
+        # in 'exceptions' and move to next batch.  If not, continue to process data.
+        if dhl_data[0] != "exception":
+            updateDatabase(dhl_data, single=True)
+            # Get list of processed 'shipping_id's from 'dhl_data' to track what entries from 'disk_data' have
+            # been processed.
+            processed.append(dhl_data[0]['tracking_num'])
+        else:
+            print("  >>>  processing single exception ...", dhl_data[1],"...\n")
+            exceptions[each] = dhl_data[1]
+
+        ##                                                               ##
+        ###   /\   FUNCTION CALLS AND DATA PROCESSING PER SINGLE   /\   ###
+        ###################################################################
+
+    for each in processed:
+        try:  del disk_data[each]
+        except KeyError:
+            print("  >>>  exception caught ... KeyError ...\n")
+            exceptions[each] = "KeyError"
+
+    return disk_data
+
 
 
 
@@ -265,5 +324,7 @@ def batchProcessing(disk_data, company_id):
                 print("  >>>  exception caught ... KeyError ...\n")
                 exceptions[each] = "KeyError"
 
-    # Return what is left in 'disk_data' still to be processed for 'singleProcessing()'.
-    return disk_data
+
+
+    # Single process what is left in 'disk_data' with 'singleProcessing()'.
+    singleProcessing(disk_data)
