@@ -55,7 +55,8 @@ SERIES = settings.weekly_accumulation_report_series
 #     'start_date':       '2019-10-20'
 # }]
 
-CSV_PATH = 'prints/tests/'
+CSV_PATH = 'saves/csvs/'
+XLSX_PATH = 'saves/'
 
 COMPANY_ID, SHIPPED_METHOD, DATE_RANGE_TYPE, MAX_FREQ, START_DATE = 0, '', '', 0, ''
 
@@ -70,7 +71,7 @@ TOTALS_COLS = [
     'StDev', 'DaysMaxFreqPlus'
 ]
 
-PERFORM_CSV_SAVES = True
+PERFORM_CSV_SAVES = False
 ONE_OFF_CSV_NAME_SUFFIX = ''
 
 CSV_NAMES = {'singles': [], 'totals': ''}
@@ -88,7 +89,7 @@ UPDATED_SINGLES_COL_VALUES = {
     'StDev':           'Deviation',
 }
 
-XLSX_SAVE_NAME = 'xlsx_save_file.xlsx'
+XLSX_SAVE_NAME = 'weekly_accumulation_report.xlsx'
 XLSX_EMAIL_NAME = ''
 
 SINGLE_CSVS = []
@@ -175,7 +176,7 @@ def main():
     final_totals_df = convertRawDfToFinalTotalsDf(raw_totals_df)
 
     print("\n>>> building xlsx output file")
-    book = xlsxwriter.Workbook(CSV_PATH + XLSX_SAVE_NAME)
+    book = xlsxwriter.Workbook(XLSX_PATH + XLSX_SAVE_NAME)
 
     print("\n>>> build global formating dict")
     buildFormat(book)
