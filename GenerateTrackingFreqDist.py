@@ -73,11 +73,11 @@ EMAIL_SUBJECT = 'GenerateTrackingFreqDist.py recap'
 SERIES = settings.generate_freq_dist_series
 
 """ DEBUG ... For single series manual input. """
-# If ['start_date'] and ['end_date'] are empty, script will auto fill with most recent Sundays
-# assuming 'date_range_type' is 'week'.
+### If ['start_date'] and ['end_date'] are empty, script will auto fill with most recent Sundays
+### assuming 'date_range_type' is 'week'.
 # SERIES = [{
-#     'company_id': 1826, 'shipped_method': 'DHL Parcel International Standard',
-#     'date_range_type': 'custom', 'max_freq': 30, 'start_date': '2019-09-01', 'end_date': '2019-12-31'
+#     'company_id': 816, 'shipped_method': 'UPS SURE POST Over 1LB',
+#     'date_range_type': 'week', 'max_freq': 14, 'start_date': '', 'end_date': ''
 # }]
 
 

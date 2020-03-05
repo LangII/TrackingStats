@@ -57,9 +57,6 @@ update_tracking_series = [
         'company_id': 1899, 'shipped_method': 'UPS MI Parcel Select',
         'days_ago': 30, 'start_date': '', 'end_date': '', 'batch': False
     },
-
-
-
     {
         'company_id': 337, 'shipped_method': 'DHL SmartMail Parcel Expedited',
         'days_ago': 30, 'start_date': '', 'end_date': '', 'batch': True
@@ -79,6 +76,13 @@ update_tracking_series = [
     {
         'company_id': 1560, 'shipped_method': 'DHL SmartMail Parcel Expedited',
         'days_ago': 30, 'start_date': '', 'end_date': '', 'batch': True
+    },
+
+
+
+    {
+        'company_id': 816, 'shipped_method': 'UPS SURE POST Over 1LB',
+        'days_ago': 30, 'start_date': '', 'end_date': '', 'batch': False
     },
 ]
 
@@ -136,9 +140,6 @@ generate_freq_dist_series = [
         'company_id': 1899, 'shipped_method': 'UPS MI Parcel Select',
         'date_range_type': 'week', 'max_freq': 14, 'start_date': '', 'end_date': ''
     },
-
-
-
     {
         'company_id': 337, 'shipped_method': 'DHL SmartMail Parcel Expedited',
         'date_range_type': 'week', 'max_freq': 14, 'start_date': '', 'end_date': ''
@@ -157,6 +158,13 @@ generate_freq_dist_series = [
     },
     {
         'company_id': 1560, 'shipped_method': 'DHL SmartMail Parcel Expedited',
+        'date_range_type': 'week', 'max_freq': 14, 'start_date': '', 'end_date': ''
+    },
+
+
+
+    {
+        'company_id': 816, 'shipped_method': 'UPS SURE POST Over 1LB',
         'date_range_type': 'week', 'max_freq': 14, 'start_date': '', 'end_date': ''
     },
 ]
@@ -326,24 +334,11 @@ weekly_accumulation_report_series = [
         'company_id': 1560, 'shipped_method': 'DHL SmartMail Parcel Expedited',
         'date_range_type': 'week', 'max_freq': 14, 'start_date': ''
     },
+
+
+
+    {
+        'company_id': 816, 'shipped_method': 'UPS SURE POST Over 1LB',
+        'date_range_type': 'week', 'max_freq': 14, 'start_date': ''
+    },
 ]
-
-
-
-# '2020-02-02'
-
-# '2020-01-26'
-# '2020-01-19'
-# '2020-01-12'
-# '2020-01-05'
-# '2019-12-29'
-# '2019-12-22'
-# '2019-12-15'
-# '2019-12-08'
-# '2019-12-01'
-# '2019-11-24'
-# '2019-11-17'
-# '2019-11-10'
-# '2019-11-03'
-# '2019-10-27'
-# '2019-10-20'

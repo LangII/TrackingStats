@@ -92,6 +92,14 @@ UPS_MAIL_INNOVATION_TAG = '<IncludeMailInnovationIndicator/>'
 UPS_REQUEST_ATTEMPTS = 5
 UPS_REQUEST_DELAY = 0.2
 
+UPS_DELIVERED_MESSAGES = [
+    'Delivered',
+    'Package delivered',
+    'The package remains at the UPS Access Point',
+    'The package was refused',
+    'The post office attempted to deliver'
+]
+
 # getSingleUspsJson()
 USPS_USER_ID = cred.USPS_USER_ID
 USPS_REQUEST_ATTEMPTS = 5
@@ -244,8 +252,6 @@ def getSingleUpsVitals(_tracking_number):
     if isinstance(ups_data, dict):  ups_data = ups_data['Package']
     else:  ups_data = ups_data[0]['Package']
 
-    # Toggle 'delivered' from value of ['DeliveryIndicator'].
-    if ups_data['DeliveryIndicator'] == 'Y':  delivered = True
 
     # Get 'message_' directly from ['Description'].
     message = ups_data['Activity']['Status']['StatusType']['Description']
@@ -257,9 +263,18 @@ def getSingleUpsVitals(_tracking_number):
         print(">>> non-ascii found...", message)
     # Build 'location' from components of ['Address'].
     location = ups_data['Activity']['ActivityLocation']['Address']
-    loc_keys = ['City', 'StateProvinceCode', 'CountryCode', 'PostalCode']
-    location = ' '.join([ location[key] for key in loc_keys if key in location ])
-    message += ' - ' + location
+    if location:
+        loc_keys = ['City', 'StateProvinceCode', 'CountryCode', 'PostalCode']
+        message += ' - ' + ' '.join([ location[key] for key in loc_keys if key in location ])
+
+    # Toggle 'delivered' from value of ['DeliveryIndicator'] or UPS_DELIVERED_MESSAGES.
+    if ups_data['DeliveryIndicator'] == 'Y':
+        delivered = True
+    else:
+        for delivered_message in UPS_DELIVERED_MESSAGES:
+            if message.startswith(delivered_message):
+                delivered = True
+                break
 
     # Build 'date' as datetime object from ['Date'].
     time_stamp = ups_data['Activity']['Date']
@@ -362,15 +377,19 @@ def getSingleUspsVitals(_tracking_number):
                                     created.
     """
 
+    def catchErrors(_usps_data):
+        """ Generalized catch of errors, to be used at different locations throughout json. """
+        if 'Error' in _usps_data:
+            print("\n>>> USPS error message: {}".format(_usps_data['Error']['Description']))
+            return 'error'
+
     vitals_ = { 'delivered': False, 'message': '', 'time_stamp': '' }
 
     # Get the json pack from USPS API and start parsing.
     usps_data = getSingleUspsJson(_tracking_number)
+    if catchErrors(usps_data) == 'error':  return 'error' # Catch first possible error format.
     usps_data = usps_data['TrackResponse']['TrackInfo']
-    # 'if' block handles bad tracking numbers.
-    if 'Error' in usps_data:
-        print("\n>>> USPS error message: {}".format(usps_data['Error']['Description']))
-        return 'error'
+    if catchErrors(usps_data) == 'error':  return 'error' # Catch second possible error format.
     usps_data = usps_data['TrackSummary']
 
     # Get 'message'.
@@ -395,7 +414,10 @@ def getSingleUspsVitals(_tracking_number):
         date_time = usps_data['EventDate'] + usps_data['EventTime']
         vitals_['time_stamp'] = datetime.strptime(date_time, '%B %d, %Y%I:%M %p')
     else:
-        vitals_['time_stamp'] = datetime.strptime(usps_data['EventDate'], '%B %d, %Y')
+        if usps_data['EventDate'] != None:
+            vitals_['time_stamp'] = datetime.strptime(usps_data['EventDate'], '%B %d, %Y')
+        else:
+            vitals_['time_stamp'] = ''
 
     return vitals_
 
@@ -495,38 +517,6 @@ def getSingleDhlJson(_tracking_number):
     return dhl_data_
 
 
-# 
-# def getBatchDhlVitals(_batch):
-#
-#     dhl_data_ = {}
-#
-#     parameters = {'access_token': getDhlKey(), 'client_id': DHL_CLIENT_ID, 'number': _batch}
-#     url = 'https://api.dhlglobalmail.com/v2/mailitems/track'
-#
-#     response = requests.get(url, params=parameters, timeout=5)
-#
-#     raw_json = response.json()
-#
-#     print(json.dumps(raw_json, indent=4, sort_keys=True))
-#     exit()
-#
-#     return dhl_data_
-#
-#
-#
-# track_nums = [
-#     'GM545316189002214877',     'GM545316189002215993',
-#     'GM545316189002201388',     '9274890223353708678517',
-#     'GM545316189002154137',     'GM545316189002125038',
-#     '9274890223353708497668',   '9274890223353708330163',
-#     'GM545316189002047643',     'GM545316189002046323'
-# ]
-#
-# dhl_data = getBatchDhlVitals(track_nums)
-# for data in dhl_data:  print(data)
-# exit()
-
-
 
 def getSingleDhlVitals(_tracking_number):
     """
@@ -617,9 +607,9 @@ def getSingleDhlHistory(_tracking_number):
                                                                          ###   METHODS / FEDEX   ###
                                                                          ###########################
 
-#########################################################
-""" <> CAUTION <> UNDER CONSTRUCTION <> KEEP CLEAR <> """
-#########################################################
+##############################
+""" UNDER CONSTRUCTION >>> """
+##############################
 
 
 
@@ -742,9 +732,9 @@ def getSingleFedExVitals(_tracking_number):
 
 
 
-#########################################################
-""" <> CAUTION <> UNDER CONSTRUCTION <> KEEP CLEAR <> """
-#########################################################
+##############################
+""" <<< UNDER CONSTRUCTION """
+##############################
 
 
 

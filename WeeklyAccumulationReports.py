@@ -152,6 +152,7 @@ def main():
     print("\n>>> generating totals dataframe (total per shipped method)")
     totals_df = generatingTotalsDf(collection_df)
 
+    """ Pandas error fix notes: """
     # "FutureWarning: Sorting because non-concatenation axis is not alligned. A future version
     # of pandas will change to not sort by default. To accept the future behavior, pass
     # 'sort=False'. To retain the current behavior and silence the warning, pass 'sort=True'."
@@ -430,11 +431,7 @@ def generateRawTotalsDfFromCsvs():
     # Get accumulated totals dataframe.
     raw_df_ = pandas.read_csv(CSV_PATH + CSV_NAMES['totals'], encoding='ISO-8859-1')
 
-
-
-    ##############################
-    """ UNDER CONSTRUCTION >>> """
-    ##############################
+    """ Start fix for non-back-logged records; insert empty stats. """
 
     empty_stats = { v: '' for v in TOTALS_VALUES }
 
@@ -450,13 +447,17 @@ def generateRawTotalsDfFromCsvs():
         date_blocks[r['StartDate'] + ' ' + r['EndDate']] += [row]
 
     # Get 'full_block', a date block with full list of ids and meths, to compare with other
-    # 'date_blocks' to determine which blocks need empty stats as fillers.
+    # 'date_blocks' to determine which blocks need 'empty_stats'.
     full_block = date_blocks[max(date_blocks.keys())]
 
-    # Loop through each 'block' in 'date_blocks', except 'full_block'.
+    # BLOCK ...  Build 'empties_to_add', for appending full rows of empty stats to dataframe.
     empties_to_add = []
+    # Loop through each 'block' in 'date_blocks', except 'full_block'.
     for date in sorted(date_blocks.keys())[:-1]:
+        # Get 'date_block', list of comp ids and ship meths for each 'date' in 'date_blocks'.
         date_block = date_blocks[date]
+        # Loop through 'full_block' to see if each in 'full_block' is not in 'date_block'.  If so,
+        # build data and add to 'empties_to_add'.
         for each in full_block:
             if each not in date_block:
                 dates = dict(zip(['StartDate', 'EndDate'], date.split()))
@@ -464,11 +465,7 @@ def generateRawTotalsDfFromCsvs():
 
     raw_df_ = raw_df_.append(empties_to_add, ignore_index=True)
 
-    ##############################
-    """ <<< UNDER CONSTRUCTION """
-    ##############################
-
-
+    """ Do minor conversions of data before returning. """
 
     # Add zero padding to 'CompanyID' for consistent sorting.
     def zeroPadding(row):
