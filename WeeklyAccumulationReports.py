@@ -47,12 +47,8 @@ SERIES = settings.weekly_accumulation_report_series
         TOTALS report will accumulate as well as individuals.  If ['start_date'] is not empty, then
         TOTALS report will not accumulate and be ignored. """
 # SERIES = [{
-#     'company_id':       1899,
-#     'shipped_method':   'UPS MI Parcel Select',
-#     'date_range_type':  'week',
-#     'max_freq':         14,
-#     # 'start_date':       ''
-#     'start_date':       '2019-10-20'
+#     'company_id': 816, 'shipped_method': 'UPS SURE POST Over 1LB',
+#     'date_range_type': 'week', 'max_freq': 14, 'start_date': ''
 # }]
 
 CSV_PATH = 'saves/csvs/'
@@ -60,8 +56,6 @@ XLSX_PATH = 'saves/'
 
 COMPANY_ID, SHIPPED_METHOD, DATE_RANGE_TYPE, MAX_FREQ, START_DATE = 0, '', '', 0, ''
 
-# Also controls the order by which the carriers are displayed in 'overview_tab'.
-# CARRIERS = ['UPS', 'USPS', 'DHL', 'FedEx']
 CARRIERS = ['USPS', 'UPS', 'DHL', 'FedEx']
 
 COLUMNS = ['CompanyID', 'ShippedMethod', 'StartDate', 'EndDate', 'TotalShipped', 'DaysMaxFreqPlus']
@@ -72,6 +66,7 @@ TOTALS_COLS = [
 ]
 
 PERFORM_CSV_SAVES = False
+
 ONE_OFF_CSV_NAME_SUFFIX = ''
 
 CSV_NAMES = {'singles': [], 'totals': ''}
@@ -393,9 +388,9 @@ def generatingTotalsDf(_df):
 
         totals_df_s += [sm_totals_df_]
 
-    totals_df__ = pandas.concat(totals_df_s, ignore_index=True)
+    totals_df_ = pandas.concat(totals_df_s, ignore_index=True)
 
-    return totals_df__
+    return totals_df_
 
 
 
@@ -435,6 +430,46 @@ def generateRawTotalsDfFromCsvs():
     # Get accumulated totals dataframe.
     raw_df_ = pandas.read_csv(CSV_PATH + CSV_NAMES['totals'], encoding='ISO-8859-1')
 
+
+
+    ##############################
+    """ UNDER CONSTRUCTION >>> """
+    ##############################
+
+    empty_stats = { v: '' for v in TOTALS_VALUES }
+
+    # Convert 'StartDate' and 'EndDate' from 'raw_df_' into concatenated strings for dict keys.
+    stringified = list(zip(*[ raw_df_[i].unique().tolist() for i in ['StartDate', 'EndDate'] ]))
+    stringified = [ sd + ' ' + ed for sd, ed in stringified ]
+
+    # Build dict of 'date_blocks' for determining which date ranges need empty stats.
+    date_blocks = { date: [] for date in stringified }
+    for _, r in raw_df_.iterrows():
+        r = dict(r.items())
+        row = { k: v for k, v in r.items() if k not in TOTALS_VALUES + ['StartDate', 'EndDate'] }
+        date_blocks[r['StartDate'] + ' ' + r['EndDate']] += [row]
+
+    # Get 'full_block', a date block with full list of ids and meths, to compare with other
+    # 'date_blocks' to determine which blocks need empty stats as fillers.
+    full_block = date_blocks[max(date_blocks.keys())]
+
+    # Loop through each 'block' in 'date_blocks', except 'full_block'.
+    empties_to_add = []
+    for date in sorted(date_blocks.keys())[:-1]:
+        date_block = date_blocks[date]
+        for each in full_block:
+            if each not in date_block:
+                dates = dict(zip(['StartDate', 'EndDate'], date.split()))
+                empties_to_add += [{**each, **dates, **empty_stats}]
+
+    raw_df_ = raw_df_.append(empties_to_add, ignore_index=True)
+
+    ##############################
+    """ <<< UNDER CONSTRUCTION """
+    ##############################
+
+
+
     # Add zero padding to 'CompanyID' for consistent sorting.
     def zeroPadding(row):
         return row['CompanyID'].rjust(4, '0') if row['CompanyID'] != 'TOTALS' else row['CompanyID']
@@ -451,6 +486,7 @@ def generateRawTotalsDfFromCsvs():
     raw_df_ = raw_df_.drop(['StartDate', 'EndDate'], axis='columns')
     cols = raw_df_.columns.tolist()
     raw_df_ = raw_df_[cols[-1:] + cols[:-1]]
+    raw_df_ = raw_df_.reset_index(drop=True)
 
     return raw_df_
 
@@ -493,7 +529,6 @@ def convertRawDfToFinalTotalsDf(_raw_df):
     company_names = [ getCompanyName(int(c)) if c.isdigit() else c for c in companies ]
     df_cols = totals_df_.columns.tolist()
     for i, name in enumerate(company_names):  totals_df_.at[2, df_cols[i]] = name
-    print(name)
     for i, name in enumerate(totals_df_.iloc[2].tolist()):
         if name == 'Michael Hyatt and Company':  totals_df_.at[2, df_cols[i]] = 'Michael Hyatt & Co'
         if name == 'The Healthy Back Institute':  totals_df_.at[2, df_cols[i]] = 'Healthy Back'
@@ -708,9 +743,9 @@ def getTabOrder(_csvs, _df_cols):
     """
 
     tab_order_ = []
-    for col in _df_cols:
-        # Ignore cols with numbers in them.
-        if all([ not char.isdigit() for char in col ]):  continue
+    for col in _df_cols[2:]:
+        # Ignore cols without numbers after '-'.
+        if all([ not char.isdigit() for char in col[col.index('-'):] ]):  continue
 
         # Get and modify 'ship_meth' and 'comp_id' from 'col'.
         ship_meth, comp_id = [ each.strip() for each in col.split('-') ]
